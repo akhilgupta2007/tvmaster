@@ -1,5 +1,5 @@
 /**
- * TvMaster - App Label Resolution Unit Tests
+ * TvMaster - App Label Resolution & Online Service Unit Tests
  */
 
 const { test, describe } = require('node:test');
@@ -9,16 +9,22 @@ const telemetryService = require('../src/services/telemetryService');
 
 describe('AppLabelService Tests', () => {
   test('Decodes known streaming and TV apps correctly', () => {
-    assert.strictEqual(appLabelService.resolve('com.google.android.youtube.tv'), 'YouTube');
+    assert.strictEqual(appLabelService.resolve('com.google.android.youtube.tv'), 'YouTube on TV');
     assert.strictEqual(appLabelService.resolve('org.smarttube.stable'), 'SmartTube');
     assert.strictEqual(appLabelService.resolve('com.netflix.ninja'), 'Netflix');
-    assert.strictEqual(appLabelService.resolve('com.myiptvonline.implayer'), 'IMPlayer');
+    assert.strictEqual(appLabelService.resolve('com.myiptvonline.implayer'), 'iMPlayer TV IPTV Player');
     assert.strictEqual(appLabelService.resolve('com.spocky.projengmenu'), 'Projectivy Launcher');
     assert.strictEqual(appLabelService.resolve('cm.aptoidetv.pt'), 'Aptoide TV');
     assert.strictEqual(appLabelService.resolve('org.xbmc.kodi'), 'Kodi');
     assert.strictEqual(appLabelService.resolve('com.plexapp.android'), 'Plex');
     assert.strictEqual(appLabelService.resolve('com.google.android.tvlauncher'), 'Android TV Home');
     assert.strictEqual(appLabelService.resolve('com.mediatek.tis'), 'MediaTek TV Input Service');
+  });
+
+  test('Online lookup service extracts official title from Google Play Store', async () => {
+    const title = await appLabelService.queryGooglePlayStore('com.spocky.projengmenu');
+    assert.ok(title, 'Should return a title from Google Play');
+    assert.match(title, /Projectivy Launcher/i);
   });
 
   test('Heuristic resolution formats uncatalogued packages into readable title', () => {

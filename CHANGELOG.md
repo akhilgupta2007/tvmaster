@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.1] - 2026-11-20
+
+### Added
+* **Full Memory Transparency & Accounting (Kernel, 4K Display Hardware & Apps)**:
+  * Resolved discrepancy between process table memory and total used RAM:
+    * Disclosed 4K display GPU framebuffer carveout (SurfaceFlinger, MediaTek hardware video decoders, and direct kernel buffers).
+    * Split memory into 4 transparent categories: **Apps & Services** (`AnonPages`), **Kernel & 4K Display Hardware** (`Slab + drivers`), **Reclaimable Cache** (`Cached + Buffers`), and **Available Memory**.
+  * Added 4-segment visual RAM bar on dashboard (Blue for Apps, Purple for Kernel/4K GPU, Cyan for Cache, Slate for Free).
+  * Added live memory accounting strip directly above the process table showing exact totals across processes vs kernel/hardware.
+
+## [1.3.0] - 2026-11-20
+
+### Added
+* **Online App Name Resolution via Google Play Store Scraper**:
+  * Added live online lookup engine to query official application titles directly from Google Play Store web metadata for any uncatalogued package.
+  * Zero-delay synchronous fallback: immediately renders heuristic title and queries online metadata asynchronously in the background.
+  * Disk and memory caching (`data/app_labels_cache.json`) so each package is only fetched once.
+  * Verified live lookups (e.g. `com.spocky.projengmenu` ➔ **Projectivy Launcher**, `com.myiptvonline.implayer` ➔ **iMPlayer TV IPTV Player**).
+
 ## [1.2.0] - 2026-11-20
 
 ### Added

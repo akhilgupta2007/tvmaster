@@ -19,12 +19,12 @@ describe('TvMaster API & Security Validation Tests', () => {
 
   const baseUrl = `http://localhost:${TEST_PORT}`;
 
-  test('GET /api/health returns 200 with TvMaster v1.2.0 metadata', async () => {
+  test('GET /api/health returns 200 with TvMaster v1.3.1 metadata', async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     assert.strictEqual(res.status, 200);
     const data = await res.json();
     assert.strictEqual(data.app, 'TvMaster');
-    assert.strictEqual(data.version, '1.2.0');
+    assert.strictEqual(data.version, '1.3.1');
     assert.strictEqual(data.status, 'ok');
   });
 

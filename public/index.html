@@ -30,7 +30,7 @@
           <div class="flex items-center gap-2">
             <h1 class="text-xl font-bold tracking-tight text-white">TvMaster</h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.2.0</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.3.1</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -90,15 +90,29 @@
           <span id="ram-percent" class="text-3xl font-black text-white">--%</span>
           <span id="ram-status" class="text-xs text-slate-400">Awaiting data</span>
         </div>
-        <!-- Segmented RAM Bar -->
-        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
-          <div id="bar-ram-active" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
-          <div id="bar-ram-cached" class="bg-cyan-400 h-full transition-all duration-300" style="width: 0%"></div>
+        <!-- 4-Way Segmented RAM Bar: Apps (Blue), Kernel/GPU (Purple), Cache (Cyan) -->
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex" title="Blue: Apps, Purple: 4K GPU & Kernel, Cyan: Cache">
+          <div id="bar-ram-active" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%" title="Apps"></div>
+          <div id="bar-ram-kernel" class="bg-purple-500 h-full transition-all duration-300" style="width: 0%" title="Kernel & 4K Display GPU"></div>
+          <div id="bar-ram-cached" class="bg-cyan-400 h-full transition-all duration-300" style="width: 0%" title="Reclaimable Cache"></div>
         </div>
-        <div class="flex justify-between text-[11px] text-slate-400 mt-2">
-          <span>Active: <b id="ram-active-val" class="text-slate-200">-</b></span>
-          <span>Cached: <b id="ram-cached-val" class="text-cyan-300">-</b></span>
-          <span>Free: <b id="ram-free-val" class="text-emerald-400">-</b></span>
+        <div class="grid grid-cols-2 gap-x-2 gap-y-1 text-[11px] text-slate-400 mt-2.5">
+          <div class="flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-blue-500"></span>
+            <span>Apps: <b id="ram-active-val" class="text-slate-200">-</b></span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-purple-500"></span>
+            <span>Kernel/4K: <b id="ram-kernel-val" class="text-purple-300">-</b></span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-cyan-400"></span>
+            <span>Cache: <b id="ram-cached-val" class="text-cyan-300">-</b></span>
+          </div>
+          <div class="flex items-center gap-1">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span>Available: <b id="ram-free-val" class="text-emerald-400">-</b></span>
+          </div>
         </div>
       </div>
 
@@ -191,7 +205,12 @@
               <span>Running Processes & Resource Hogs</span>
               <span id="process-count-badge" class="px-2 py-0.5 rounded-full text-xs bg-slate-800 text-slate-300">0 active</span>
             </h2>
-            <p class="text-xs text-slate-400">Click column headers to sort. Filter, search, and manage apps with granular actions.</p>
+            <div class="flex flex-wrap items-center gap-2 text-xs text-slate-400 mt-0.5">
+              <span>Click headers to sort.</span>
+              <span id="mem-accounting-pill" class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-[11px] text-slate-300 font-mono" title="Processes show userspace apps. 4K GPU framebuffer and Linux drivers reserve memory directly in kernel space.">
+                Calculating memory accounting...
+              </span>
+            </div>
           </div>
           <!-- Fast Filter Chips -->
           <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
@@ -269,7 +288,7 @@
 
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
-    <div>TvMaster v1.2.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
+    <div>TvMaster v1.3.1 • Lightweight Zero-Overhead Android TV Task Manager</div>
     <div>Self-hosted Docker Hub Edition</div>
   </footer>
 

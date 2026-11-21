@@ -39,6 +39,11 @@ class TelemetryService {
     const availableKb = map.MemAvailable !== undefined ? map.MemAvailable : (freeKb + cachedKb);
     const usedKb = Math.max(0, totalKb - availableKb);
 
+    // Deep memory breakdown
+    const anonKb = map.AnonPages || 0;
+    const slabKb = (map.Slab || 0) + (map.PageTables || 0) + (map.KernelStack || 0);
+    const swapUsedKb = Math.max(0, (map.SwapTotal || 0) - (map.SwapFree || 0));
+
     const totalMb = Math.round(totalKb / 1024);
     const freeMb = Math.round(freeKb / 1024);
     const cachedMb = Math.round(cachedKb / 1024);
@@ -46,7 +51,23 @@ class TelemetryService {
     const usedMb = Math.round(usedKb / 1024);
     const usedPercent = totalMb > 0 ? Math.min(100, Math.round((usedMb / totalMb) * 100)) : 0;
 
-    return { totalMb, usedMb, freeMb, cachedMb, availableMb, usedPercent };
+    // Userspace apps memory (AnonPages)
+    const appsMb = anonKb > 0 ? Math.round(anonKb / 1024) : Math.max(0, Math.round((usedKb - slabKb) / 1024));
+    // Kernel, 4K Display Hardware Framebuffer (MediaTek/SurfaceFlinger) & Drivers
+    const kernelGpuMb = Math.max(0, usedMb - appsMb);
+    const zramMb = Math.round(swapUsedKb / 1024);
+
+    return {
+      totalMb,
+      usedMb,
+      freeMb,
+      cachedMb,
+      availableMb,
+      usedPercent,
+      appsMb,
+      kernelGpuMb,
+      zramMb
+    };
   }
 
   /**
@@ -270,6 +291,9 @@ class TelemetryService {
       const load = this.parseLoadavg(loadStr);
       const storage = this.parseStorage(dfStr);
       const processes = this.parseTop(topStr);
+
+      const processTotalMb = processes.reduce((acc, p) => acc + (p.memMb || 0), 0);
+      memory.processTotalMb = processTotalMb;
 
       this.lastTelemetry = {
         timestamp: Date.now(),

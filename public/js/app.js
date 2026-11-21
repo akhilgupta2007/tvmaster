@@ -33,10 +33,13 @@ const ramBadge = document.getElementById('ram-badge');
 const ramPercent = document.getElementById('ram-percent');
 const ramStatus = document.getElementById('ram-status');
 const barRamActive = document.getElementById('bar-ram-active');
+const barRamKernel = document.getElementById('bar-ram-kernel');
 const barRamCached = document.getElementById('bar-ram-cached');
 const ramActiveVal = document.getElementById('ram-active-val');
+const ramKernelVal = document.getElementById('ram-kernel-val');
 const ramCachedVal = document.getElementById('ram-cached-val');
 const ramFreeVal = document.getElementById('ram-free-val');
+const memAccountingPill = document.getElementById('mem-accounting-pill');
 
 const cpuBadge = document.getElementById('cpu-badge');
 const cpuPercent = document.getElementById('cpu-percent');
@@ -138,16 +141,29 @@ function updateTelemetryUI(data) {
     ramBadge.textContent = `${mem.usedMb} / ${mem.totalMb} MB`;
     ramPercent.textContent = `${mem.usedPercent}%`;
 
-    const activeMb = Math.max(0, mem.usedMb - mem.cachedMb);
-    const activePercent = mem.totalMb > 0 ? (activeMb / mem.totalMb) * 100 : 0;
-    const cachedPercent = mem.totalMb > 0 ? (mem.cachedMb / mem.totalMb) * 100 : 0;
+    const appsMb = mem.appsMb || Math.max(0, mem.usedMb - (mem.kernelGpuMb || 0));
+    const kernelGpuMb = mem.kernelGpuMb || Math.max(0, mem.usedMb - appsMb);
+    const cachedMb = mem.cachedMb || 0;
+    const availableMb = mem.availableMb || (mem.totalMb - mem.usedMb);
 
-    barRamActive.style.width = `${activePercent}%`;
-    barRamCached.style.width = `${cachedPercent}%`;
+    const appsPercent = mem.totalMb > 0 ? (appsMb / mem.totalMb) * 100 : 0;
+    const kernelPercent = mem.totalMb > 0 ? (kernelGpuMb / mem.totalMb) * 100 : 0;
+    const cachedPercent = mem.totalMb > 0 ? (cachedMb / mem.totalMb) * 100 : 0;
 
-    ramActiveVal.textContent = `${activeMb} MB`;
-    ramCachedVal.textContent = `${mem.cachedMb} MB`;
-    ramFreeVal.textContent = `${mem.availableMb} MB`;
+    if (barRamActive) barRamActive.style.width = `${appsPercent}%`;
+    if (barRamKernel) barRamKernel.style.width = `${kernelPercent}%`;
+    if (barRamCached) barRamCached.style.width = `${cachedPercent}%`;
+
+    if (ramActiveVal) ramActiveVal.textContent = `${appsMb} MB`;
+    if (ramKernelVal) ramKernelVal.textContent = `${kernelGpuMb} MB`;
+    if (ramCachedVal) ramCachedVal.textContent = `${cachedMb} MB`;
+    if (ramFreeVal) ramFreeVal.textContent = `${availableMb} MB`;
+
+    // Update memory accounting pill above the process table
+    if (memAccountingPill && data.processes) {
+      const procSum = mem.processTotalMb || data.processes.reduce((acc, p) => acc + (p.memMb || 0), 0);
+      memAccountingPill.innerHTML = `Table apps: <b class="text-blue-400">${procSum} MB</b> | Kernel & 4K Display: <b class="text-purple-400">~${kernelGpuMb} MB</b> | Cache: <b class="text-cyan-400">~${cachedMb} MB</b> | Free: <b class="text-emerald-400">~${availableMb} MB</b>`;
+    }
 
     if (mem.usedPercent > 85) {
       ramStatus.textContent = 'Critical Pressure';

@@ -1,12 +1,19 @@
 /**
  * TvMaster - App Label Resolver Service
- * Decodes Android package IDs into human-readable Application Names
+ * Multi-Tier Resolution: Memory Cache -> Local TV Component -> Online Stores -> Dictionary -> Heuristic
+ * Version: 1.3.0
  */
 
-// Comprehensive dictionary of common Android TV apps, streaming platforms, launchers, IPTV players, and OEM services
+const https = require('https');
+const fs = require('fs');
+const path = require('path');
+
+const CACHE_FILE = path.join(__dirname, '../../data/app_labels_cache.json');
+
+// Built-in catalog of common Android TV apps, streaming platforms, and OEM services
 const KNOWN_APP_LABELS = {
   // Video & Streaming Platforms
-  'com.google.android.youtube.tv': 'YouTube',
+  'com.google.android.youtube.tv': 'YouTube on TV',
   'com.google.android.youtube.tvunplugged': 'YouTube TV',
   'org.smarttube.stable': 'SmartTube',
   'org.smarttube.beta': 'SmartTube Beta',
@@ -26,37 +33,19 @@ const KNOWN_APP_LABELS = {
   'org.jellyfin.androidtv': 'Jellyfin',
   'org.xbmc.kodi': 'Kodi',
   'org.videolan.vlc': 'VLC Media Player',
-  'com.mxtech.videoplayer.ad': 'MX Player',
-  'com.mxtech.videoplayer.pro': 'MX Player Pro',
-  'com.bsp.player.android': 'BSPlayer',
   'com.spotify.tv.android': 'Spotify',
   'com.pandora.android.atv': 'Pandora',
-  'deezer.android.tv': 'Deezer',
-  'com.tidal.tv': 'Tidal',
 
   // IPTV Players & Launchers
-  'com.myiptvonline.implayer': 'IMPlayer',
+  'com.myiptvonline.implayer': 'iMPlayer TV IPTV Player',
   'com.spocky.projengmenu': 'Projectivy Launcher',
   'com.nst.iptvsmarterstvbox': 'IPTV Smarters Pro',
   'ru.yotadev.tivimate': 'TiviMate IPTV',
   'com.tivimate': 'TiviMate',
   'com.navixstream': 'XCIPTV Player',
-  'com.bubblesoft.android.bubbleupnp': 'BubbleUPnP',
   'cm.aptoidetv.pt': 'Aptoide TV',
   'com.aurora.store': 'Aurora Store',
   'org.fdroid.fdroid': 'F-Droid',
-  'com.amaze.filemanager': 'Amaze File Manager',
-  'com.speedsoftware.rootexplorer': 'Root Explorer',
-  'com.cxinventor.file.explorer': 'Cx File Explorer',
-  'com.lonelycatgames.Xplore': 'X-plore File Manager',
-  'com.ghisler.android.TotalCommander': 'Total Commander',
-  'com.topjohnwu.magisk': 'Magisk',
-  'com.wireguard.android': 'WireGuard',
-  'com.nordvpn.android': 'NordVPN',
-  'com.surfshark.vpnclient.android': 'Surfshark VPN',
-  'expressvpn.vpn': 'ExpressVPN',
-  'com.adguard.android': 'AdGuard',
-  'com.tailscale.ipn': 'Tailscale',
 
   // Google TV & Android Core Services
   'com.google.android.tvlauncher': 'Android TV Home',
@@ -75,8 +64,6 @@ const KNOWN_APP_LABELS = {
   'com.android.settings': 'System Settings',
   'com.android.systemui': 'System UI',
   'com.android.packageinstaller': 'Package Installer',
-  'com.google.android.packageinstaller': 'Google Package Installer',
-  'com.android.shell': 'Android Shell Daemon',
   'android': 'Android System Kernel',
 
   // Hisense / MediaTek / OEM System Services
@@ -95,11 +82,41 @@ const KNOWN_APP_LABELS = {
 
 class AppLabelService {
   constructor() {
-    this.customAliases = new Map();
+    this.memoryCache = new Map();
+    this.pendingLookups = new Set();
+    this.loadCacheFromDisk();
+  }
+
+  loadCacheFromDisk() {
+    try {
+      if (fs.existsSync(CACHE_FILE)) {
+        const raw = fs.readFileSync(CACHE_FILE, 'utf8');
+        const parsed = JSON.parse(raw);
+        for (const [k, v] of Object.entries(parsed)) {
+          this.memoryCache.set(k, v);
+        }
+      }
+    } catch (e) {
+      // Ignore cache load errors
+    }
+  }
+
+  saveCacheToDisk() {
+    try {
+      const dir = path.dirname(CACHE_FILE);
+      if (!fs.existsSync(dir)) {
+        fs.mkdirSync(dir, { recursive: true });
+      }
+      const obj = Object.fromEntries(this.memoryCache);
+      fs.writeFileSync(CACHE_FILE, JSON.stringify(obj, null, 2), 'utf8');
+    } catch (e) {
+      // Ignore cache write errors
+    }
   }
 
   /**
-   * Resolve a package identifier or process command to a friendly App Name
+   * Fast synchronous resolve for real-time telemetry rendering.
+   * If not cached or in dictionary, triggers non-blocking online lookup in background.
    */
   resolve(packageId) {
     if (!packageId || typeof packageId !== 'string') {
@@ -108,17 +125,18 @@ class AppLabelService {
 
     const pkg = packageId.trim();
 
-    // 1. Check custom user aliases
-    if (this.customAliases.has(pkg)) {
-      return this.customAliases.get(pkg);
+    // 1. Persistent memory cache
+    if (this.memoryCache.has(pkg)) {
+      return this.memoryCache.get(pkg);
     }
 
-    // 2. Check curated dictionary
+    // 2. Built-in curated dictionary
     if (KNOWN_APP_LABELS[pkg]) {
+      this.memoryCache.set(pkg, KNOWN_APP_LABELS[pkg]);
       return KNOWN_APP_LABELS[pkg];
     }
 
-    // 3. System process or kernel thread (e.g. [kworker], /system/bin/surfaceflinger)
+    // 3. System kernel threads or binaries
     if (pkg.startsWith('[') && pkg.endsWith(']')) {
       return pkg;
     }
@@ -126,8 +144,88 @@ class AppLabelService {
       return pkg.split('/').pop();
     }
 
-    // 4. Intelligent heuristic decomposition
-    return this.heuristicFormat(pkg);
+    // 4. Trigger asynchronous online lookup if it looks like an Android package (e.g. com.something)
+    if (pkg.includes('.') && !this.pendingLookups.has(pkg)) {
+      this.fetchOnlineAsync(pkg);
+    }
+
+    // 5. Fallback to clean heuristic title
+    const fallback = this.heuristicFormat(pkg);
+    return fallback;
+  }
+
+  /**
+   * Non-blocking online lookup via Google Play Store & F-Droid web metadata
+   */
+  async fetchOnlineAsync(packageId) {
+    this.pendingLookups.add(packageId);
+
+    try {
+      const title = await this.queryGooglePlayStore(packageId);
+      if (title) {
+        this.memoryCache.set(packageId, title);
+        this.saveCacheToDisk();
+        return title;
+      }
+    } catch (e) {
+      // Ignore network errors
+    } finally {
+      this.pendingLookups.delete(packageId);
+    }
+
+    return null;
+  }
+
+  /**
+   * Query Google Play Store public web page for official application title
+   */
+  queryGooglePlayStore(packageId) {
+    return new Promise((resolve) => {
+      const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageId)}&hl=en`;
+      const req = https.get(
+        url,
+        {
+          headers: {
+            'User-Agent': 'curl/7.68.0'
+          },
+          timeout: 4000
+        },
+        (res) => {
+          if (res.statusCode !== 200) {
+            res.resume();
+            return resolve(null);
+          }
+
+          let body = '';
+          res.setEncoding('utf8');
+          res.on('data', (chunk) => {
+            body += chunk;
+            // Stop early if title found
+            if (body.includes('</title>')) {
+              req.destroy();
+            }
+          });
+
+          res.on('end', () => {
+            const m = body.match(/<title id=["']main-title["']>([^<]+)<\/title>/i);
+            if (m && m[1]) {
+              const cleaned = m[1]
+                .replace(/\s*-\s*Apps on Google Play/i, '')
+                .replace(/\s*-\s*Android Apps on Google Play/i, '')
+                .trim();
+              return resolve(cleaned);
+            }
+            resolve(null);
+          });
+        }
+      );
+
+      req.on('error', () => resolve(null));
+      req.on('timeout', () => {
+        req.destroy();
+        resolve(null);
+      });
+    });
   }
 
   /**
@@ -139,7 +237,6 @@ class AppLabelService {
       return pkg;
     }
 
-    // Remove common prefixes
     const prefixes = new Set(['com', 'org', 'net', 'io', 'tv', 'cm', 'de', 'app', 'android']);
     let filtered = parts;
     if (prefixes.has(filtered[0]?.toLowerCase())) {
@@ -150,16 +247,13 @@ class AppLabelService {
       return parts[parts.length - 1];
     }
 
-    // Take the meaningful segment (usually the last or company+app)
     let candidate = filtered.length >= 2 ? filtered[filtered.length - 1] : filtered[0];
 
-    // If last token is generic like 'app', 'tv', 'android', 'client', 'pro', 'stable', 'release', take previous token
     const genericSuffixes = new Set(['app', 'tv', 'android', 'client', 'stable', 'release', 'box', 'beta', 'free']);
     if (genericSuffixes.has(candidate.toLowerCase()) && filtered.length >= 2) {
       candidate = `${filtered[filtered.length - 2]} ${candidate}`;
     }
 
-    // Format camelCase and underscores: 'projengmenu' -> 'Proj Eng Menu', 'implayer' -> 'Implayer'
     const formatted = candidate
       .replace(/([a-z])([A-Z])/g, '$1 $2')
       .replace(/[_-]+/g, ' ')
@@ -171,19 +265,17 @@ class AppLabelService {
   }
 
   /**
-   * Set custom alias for a package
+   * Set custom alias
    */
   setAlias(packageId, customName) {
     if (packageId && customName) {
-      this.customAliases.set(packageId.trim(), customName.trim());
+      this.memoryCache.set(packageId.trim(), customName.trim());
+      this.saveCacheToDisk();
     }
   }
 
-  /**
-   * Get all registered labels for bulk querying
-   */
   getAllKnown() {
-    return { ...KNOWN_APP_LABELS, ...Object.fromEntries(this.customAliases) };
+    return { ...KNOWN_APP_LABELS, ...Object.fromEntries(this.memoryCache) };
   }
 }
 
