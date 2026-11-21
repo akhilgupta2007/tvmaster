@@ -15,7 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   * **CPU Architecture & ABI Detection**: Automatically queries device ABI (`ro.product.cpu.abi`) and formats architecture (e.g. `ARMv8 (32-bit v7l)`, `ARMv8 64-bit`, `x86_64`).
   * **SoC Model & Platform Identification**: Reads SoC manufacturer and model (`ro.soc.manufacturer`, `ro.soc.model`, `ro.hardware`) to display chipset identity (e.g. `MediaTek MT9689`, `Amlogic S905X4`, `Qualcomm Snapdragon`).
   * **Dynamic Per-Core Micro-Bar Visualizer**: Renders individual micro-bars on the CPU dashboard card for each detected CPU core with color transitions (green <= 40%, amber <= 75%, red > 75%) updating live over WebSocket.
-  * Added unit tests asserting multi-core delta parsing in `telemetry.test.js` and architectural metadata checks in `api.test.js` (43/43 tests passing).
+  * **MCP Server Tool Expansions**: Added `tv_get_display_specs` (display & HDR handshake), `tv_list_devices` (multi-device profiles), `tv_switch_device` (1-click active TV switching), `tv_launch_package`, `tv_clear_app_data`, and `tv_uninstall_package` to the native Model Context Protocol server.
+  * Added unit tests asserting multi-core delta parsing in `telemetry.test.js`, architectural metadata checks in `api.test.js`, and expanded MCP registry tests in `mcp.test.js` (45/45 tests passing).
 
 ## [1.5.1] - 2026-11-21
 

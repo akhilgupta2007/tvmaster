@@ -12,6 +12,7 @@ const { APP_NAME, APP_VERSION } = require('../constants');
 const adbService = require('../services/adbService');
 const telemetryService = require('../services/telemetryService');
 const discoveryService = require('../services/discoveryService');
+const deviceService = require('../services/deviceService');
 
 function createMcpServer() {
   const server = new McpServer({
@@ -423,6 +424,108 @@ function createMcpServer() {
         return {
           isError: true,
           content: [{ type: 'text', text: `Launch failed: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 16: Display & HDR Specs
+  server.tool(
+    'tv_get_display_specs',
+    'Get display capabilities, video modes, refresh rate (FPS), HDR matrix (Dolby Vision, HDR10+, HLG), and ALLM',
+    {
+      forceRefresh: z.boolean().optional().default(false).describe('Re-query HDMI handshake from TV')
+    },
+    async ({ forceRefresh }) => {
+      if (!adbService.connected) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Device not connected. Use tv_connect first.' }]
+        };
+      }
+      try {
+        const specs = await adbService.getDisplaySpecs(forceRefresh);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(specs, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to query display specs: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 17: List Saved Devices & Streaming Cards
+  server.tool(
+    'tv_list_devices',
+    'List all registered TV, Firestick, Shield, and Streaming device profiles with classification and active status',
+    {},
+    async () => {
+      try {
+        const devices = deviceService.getDevices(adbService.deviceIp);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ count: devices.length, activeIp: adbService.deviceIp, devices }, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to list devices: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 18: Switch Device
+  server.tool(
+    'tv_switch_device',
+    'Switch active connection to another saved or target Android TV / Streaming device by IP address',
+    {
+      ip: z.string().describe('Target device IP to connect to (e.g. 10.0.0.13)'),
+      port: z.number().optional().default(5555).describe('ADB port, defaults to 5555')
+    },
+    async ({ ip, port }) => {
+      try {
+        const result = await adbService.connect(ip, port);
+        const classification = deviceService.addOrUpdateDevice({
+          ip,
+          port,
+          name: result.deviceInfo?.model || ip,
+          model: result.deviceInfo?.model || '',
+          manufacturer: result.deviceInfo?.manufacturer || ''
+        });
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(
+                {
+                  success: true,
+                  message: `Switched connection to ${ip}:${port}`,
+                  deviceInfo: result.deviceInfo,
+                  classification
+                },
+                null,
+                2
+              )
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Switch device failed: ${err.message}` }]
         };
       }
     }

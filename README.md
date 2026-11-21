@@ -8,7 +8,7 @@
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Devices](https://img.shields.io/badge/Devices-Android%20TV%20%7C%20Fire%20TV%20%7C%20Shield%20%7C%20Chromecast-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)
-![Tests](https://img.shields.io/badge/tests-43%2F43%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-45%2F45%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Zero-Overhead Android TV, Fire TV & Streaming Device Resource Monitor, Task Manager & Debloat Hub for Docker & Home Servers**
@@ -224,6 +224,12 @@ Add this entry to your MCP configuration file (e.g. `claude_desktop_config.json`
 | `tv_send_text` | Types text directly into any active input on screen |
 | `tv_discover_devices`| Sweeps local subnet for Android TVs |
 | `tv_reboot` | Soft reboots the Android TV |
+| `tv_get_display_specs` | Queries resolution, refresh rate/FPS, HDR matrix (Dolby Vision, HDR10+, HLG), and ALLM |
+| `tv_list_devices` | Lists registered TV, Firestick, Shield, and Projector profiles with active status |
+| `tv_switch_device` | Seamlessly switches active connection to another target device IP |
+| `tv_launch_package` | Opens an app on the TV (`monkey -p`) |
+| `tv_clear_app_data` | Clears app cache and data (`pm clear`) |
+| `tv_uninstall_package` | Uninstalls an app package from the TV (`pm uninstall`) |
 
 ---
 
