@@ -30,7 +30,7 @@
           <div class="flex items-center gap-2">
             <h1 class="text-xl font-bold tracking-tight text-white">TvMaster</h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.1.0</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.2.0</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -215,7 +215,9 @@
             <select id="select-sort-field" onchange="onSortDropdownChange(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
               <option value="memMb-desc">Memory (Highest First)</option>
               <option value="cpu-desc">CPU % (Highest First)</option>
-              <option value="name-asc">App Name (A-Z)</option>
+              <option value="appName-asc">App Name (A-Z)</option>
+              <option value="appName-desc">App Name (Z-A)</option>
+              <option value="package-asc">Package ID (A-Z)</option>
               <option value="pid-asc">PID (Low to High)</option>
             </select>
             <span class="text-slate-400 ml-2">Display Limit:</span>
@@ -234,8 +236,8 @@
         <table class="w-full text-left text-xs">
           <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800 select-none">
             <tr>
-              <th onclick="toggleSort('name')" class="py-3 px-4 sortable" id="th-name">
-                <span class="flex items-center gap-1">Process / App Name <span class="sort-icon">↕</span></span>
+              <th onclick="toggleSort('appName')" class="py-3 px-4 sortable" id="th-appName">
+                <span class="flex items-center gap-1">App Name <span class="sort-icon">↕</span></span>
               </th>
               <th onclick="toggleSort('package')" class="py-3 px-4 sortable" id="th-package">
                 <span class="flex items-center gap-1">Package ID <span class="sort-icon">↕</span></span>
@@ -267,7 +269,7 @@
 
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
-    <div>TvMaster v1.1.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
+    <div>TvMaster v1.2.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
     <div>Self-hosted Docker Hub Edition</div>
   </footer>
 

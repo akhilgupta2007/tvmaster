@@ -231,7 +231,7 @@ function toggleSort(column) {
     sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
   } else {
     sortColumn = column;
-    sortDirection = column === 'name' || column === 'package' ? 'asc' : 'desc';
+    sortDirection = column === 'appName' || column === 'name' || column === 'package' ? 'asc' : 'desc';
   }
   updateSortIndicators();
   applyFiltersAndSort();
@@ -246,7 +246,7 @@ function onSortDropdownChange(val) {
 }
 
 function updateSortIndicators() {
-  const columns = ['name', 'package', 'pid', 'cpu', 'memMb'];
+  const columns = ['appName', 'package', 'pid', 'cpu', 'memMb'];
   columns.forEach((col) => {
     const th = document.getElementById(`th-${col}`);
     if (th) {
@@ -272,9 +272,11 @@ function applyFiltersAndSort() {
 
   // 1. Filter
   let filtered = currentProcesses.filter((proc) => {
+    const appLabel = proc.appName || proc.name || '';
+    const pkgId = proc.package || '';
     const matchesQuery =
-      proc.name.toLowerCase().includes(query) ||
-      proc.package.toLowerCase().includes(query) ||
+      appLabel.toLowerCase().includes(query) ||
+      pkgId.toLowerCase().includes(query) ||
       String(proc.pid).includes(query);
     if (!matchesQuery) return false;
 
@@ -289,8 +291,14 @@ function applyFiltersAndSort() {
     let valA = a[sortColumn];
     let valB = b[sortColumn];
 
+    // Fallback for appName
+    if (sortColumn === 'appName') {
+      valA = a.appName || a.name || '';
+      valB = b.appName || b.name || '';
+    }
+
     if (typeof valA === 'string') {
-      const comp = valA.localeCompare(valB);
+      const comp = valA.localeCompare(valB, undefined, { sensitivity: 'base' });
       return sortDirection === 'asc' ? comp : -comp;
     }
 
@@ -324,6 +332,7 @@ function renderProcessTable(processes) {
       const isHog = proc.cpu > 10 || proc.memMb > 250;
       const cpuClass = proc.cpu > 15 ? 'text-red-400 font-black' : proc.cpu > 5 ? 'text-amber-400 font-bold' : 'text-slate-300';
       const isUser = userInstalledPackages.has(proc.package) || proc.isUserApp;
+      const displayName = proc.appName || proc.name || proc.package;
 
       const typeBadge = isUser
         ? '<span class="px-2 py-0.5 rounded-full badge-user text-[10px] font-bold">User App</span>'
@@ -334,8 +343,8 @@ function renderProcessTable(processes) {
       return `
       <tr class="hover:bg-slate-800/40 transition group">
         <td class="py-2.5 px-4 font-sans font-medium text-white flex items-center gap-2">
-          <span class="w-6 h-6 rounded bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs uppercase">${proc.name.slice(0, 2)}</span>
-          <span class="truncate max-w-[140px] md:max-w-xs" title="${escapeHtml(proc.name)}">${escapeHtml(proc.name)}</span>
+          <span class="w-6 h-6 rounded bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs uppercase">${displayName.slice(0, 2)}</span>
+          <span class="truncate max-w-[140px] md:max-w-xs font-semibold text-slate-100" title="${escapeHtml(displayName)}">${escapeHtml(displayName)}</span>
           ${isHog ? '<span title="Resource Hog" class="text-amber-400 text-xs">🔥</span>' : ''}
         </td>
         <td class="py-2.5 px-4 text-slate-400 text-xs font-mono truncate max-w-[150px] md:max-w-sm" title="${escapeHtml(proc.package)}">
@@ -351,19 +360,19 @@ function renderProcessTable(processes) {
               <button onclick="launchApp('${escapeHtml(proc.package)}')" title="Open App on TV" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">
                 ▶ Open
               </button>
-              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
+              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(displayName)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
                 End Task
               </button>
-              <button onclick="clearAppData('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Clear App Cache" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 rounded text-xs transition">
+              <button onclick="clearAppData('${escapeHtml(proc.package)}', '${escapeHtml(displayName)}')" title="Clear App Cache" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 rounded text-xs transition">
                 Clear
               </button>
             ` : `
-              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
+              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(displayName)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
                 End Task
               </button>
             `}
             ${isUser ? `
-              <button onclick="uninstallApp('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Uninstall from TV" class="px-2 py-1 bg-red-950 hover:bg-red-800 text-red-300 border border-red-700 rounded text-xs transition">
+              <button onclick="uninstallApp('${escapeHtml(proc.package)}', '${escapeHtml(displayName)}')" title="Uninstall from TV" class="px-2 py-1 bg-red-950 hover:bg-red-800 text-red-300 border border-red-700 rounded text-xs transition">
                 🗑️ Uninstall
               </button>
             ` : ''}

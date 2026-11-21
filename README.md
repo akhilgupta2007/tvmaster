@@ -2,7 +2,7 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.1.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.2.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Android TV](https://img.shields.io/badge/Android%20TV-API%2021%2B-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)

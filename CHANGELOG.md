@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.2.0] - 2026-11-20
+
+### Added
+* **Package-to-App-Name Decoder Service (`appLabelService.js`)**:
+  * Resolves cryptic Android package identifiers into clean human-readable application names (e.g. `com.google.android.youtube.tv` → **YouTube**, `org.smarttube.stable` → **SmartTube**, `com.myiptvonline.implayer` → **IMPlayer**, `com.spocky.projengmenu` → **Projectivy Launcher**, `com.mediatek.tis` → **MediaTek TV Input Service**).
+  * Includes extensive catalog of over 150+ popular Android TV apps, streaming platforms, IPTV players, and OEM hardware services.
+  * Smart camelCase & reverse-domain heuristic decomposition for uncatalogued or custom sideloaded apps.
+* **Dedicated App Name Column & Multi-Column Sorting**:
+  * New dedicated **App Name** column in the Task Manager table alongside **Package ID**.
+  * Interactive click-to-sort on **App Name (A-Z / Z-A)**, with directional indicators.
+  * Added "App Name (A-Z)" and "App Name (Z-A)" directly in the Sort By dropdown.
+  * Omni-search filter now matches on friendly App Name, Package ID, and PID simultaneously.
+
 ## [1.1.0] - 2026-11-20
 
 ### Added

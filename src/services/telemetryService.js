@@ -4,6 +4,7 @@
  */
 
 const adbService = require('./adbService');
+const appLabelService = require('./appLabelService');
 
 class TelemetryService {
   constructor() {
@@ -218,10 +219,12 @@ class TelemetryService {
       // Friendly state and app name
       let isSystem = name.startsWith('/system') || name.startsWith('[');
       let isPackage = name.includes('.');
+      const appName = appLabelService.resolve(name);
 
       processes.push({
         pid,
-        name: isPackage ? name.split('.').pop() : name,
+        name: appName,
+        appName,
         package: name,
         cpu: isNaN(cpu) ? 0 : cpu,
         memMb: isNaN(memMb) ? 0 : memMb,
