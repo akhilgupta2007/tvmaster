@@ -1,0 +1,26 @@
+{
+  "name": "tvmaster",
+  "version": "1.0.0",
+  "description": "Zero-overhead Android TV Resource Monitor and Task Manager for Docker and Home Servers",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "test": "node --test tests/*.test.js"
+  },
+  "keywords": [
+    "android-tv",
+    "task-manager",
+    "resource-monitor",
+    "adb",
+    "docker",
+    "home-server",
+    "debloater"
+  ],
+  "author": "",
+  "license": "MIT",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.1",
+    "ws": "^8.18.0"
+  }
+}

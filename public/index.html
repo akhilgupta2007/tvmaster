@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>TvMaster v1.0.0 - Android TV Task Manager & Resource Monitor</title>
+  <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
+  <link rel="stylesheet" href="/css/styles.css">
+</head>
+<body class="min-h-screen p-3 md:p-6 text-slate-100 flex flex-col justify-between">
+
+  <!-- Main Container -->
+  <div class="max-w-7xl mx-auto w-full space-y-5">
+    
+    <!-- Top Header Bar -->
+    <header class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-xl backdrop-blur-md">
+      <!-- Brand & Version -->
+      <div class="flex items-center gap-3">
+        <div class="w-11 h-11 rounded-xl bg-gradient-to-tr from-blue-700 to-indigo-500 flex items-center justify-center font-black text-xl text-white shadow-lg glow-blue">
+          TV
+        </div>
+        <div>
+          <div class="flex items-center gap-2">
+            <h1 class="text-xl font-bold tracking-tight text-white">TvMaster</h1>
+            <!-- Required Version Badge -->
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.0.0</span>
+            <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
+              <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
+              <span id="conn-text">Disconnected</span>
+            </span>
+          </div>
+          <p class="text-xs text-slate-400">Zero-Load Android TV Resource Monitor & Process Manager</p>
+        </div>
+      </div>
+
+      <!-- Connection & Discovery Inputs -->
+      <div class="flex flex-wrap items-center gap-2">
+        <button id="btn-discover" onclick="openDiscoverModal()" class="px-3 py-2 bg-indigo-600/20 hover:bg-indigo-600/40 text-indigo-300 border border-indigo-500/30 rounded-xl text-xs font-semibold transition flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+          Auto-Discover
+        </button>
+        <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-500 transition">
+          <input id="input-ip" type="text" placeholder="192.168.1.145" class="bg-transparent px-3 py-2 text-xs text-white focus:outline-none w-36 font-mono">
+          <span class="text-slate-600 text-xs">:</span>
+          <input id="input-port" type="text" value="5555" class="bg-transparent px-2 py-2 text-xs text-slate-400 focus:outline-none w-14 font-mono">
+        </div>
+        <button id="btn-connect" onclick="toggleConnect()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl transition shadow-md glow-blue">
+          Connect
+        </button>
+      </div>
+    </header>
+
+    <!-- Device Details Bar -->
+    <div id="device-bar" class="bg-slate-900 border border-slate-800 rounded-xl p-3 flex flex-wrap items-center justify-between gap-3 text-xs">
+      <div class="flex flex-wrap items-center gap-4">
+        <div><span class="text-slate-400">Model:</span> <span id="dev-model" class="font-bold text-white bg-slate-800 px-2.5 py-0.5 rounded">Not Connected</span></div>
+        <div><span class="text-slate-400">IP:</span> <span id="dev-ip" class="text-slate-300 font-mono">-</span></div>
+        <div><span class="text-slate-400">Android:</span> <span id="dev-os" class="text-slate-300">-</span></div>
+        <div><span class="text-slate-400">Display:</span> <span id="dev-res" class="text-slate-300">-</span></div>
+      </div>
+      <div class="flex items-center gap-3">
+        <span class="text-slate-400">Polling:</span>
+        <select id="poll-interval-select" onchange="changePollRate(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-xs text-white">
+          <option value="3000">3s (Gentle / Recommended)</option>
+          <option value="5000">5s (Eco / Low End)</option>
+          <option value="2000">2s (Fast)</option>
+          <option value="0">Manual Only</option>
+        </select>
+        <button onclick="requestManualSnapshot()" class="text-blue-400 hover:text-blue-300 font-medium text-xs">↻ Refresh Now</button>
+      </div>
+    </div>
+
+    <!-- 4 Telemetry Metric Cards -->
+    <section class="grid grid-cols-1 md:grid-cols-4 gap-4">
+      
+      <!-- RAM Utilization -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-blue-500/40 transition">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">RAM Utilization</span>
+          <span id="ram-badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-blue-500/20 text-blue-400">-- / -- MB</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span id="ram-percent" class="text-3xl font-black text-white">--%</span>
+          <span id="ram-status" class="text-xs text-slate-400">Awaiting data</span>
+        </div>
+        <!-- Segmented RAM Bar -->
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden flex">
+          <div id="bar-ram-active" class="bg-blue-500 h-full transition-all duration-300" style="width: 0%"></div>
+          <div id="bar-ram-cached" class="bg-cyan-400 h-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+          <span>Active: <b id="ram-active-val" class="text-slate-200">-</b></span>
+          <span>Cached: <b id="ram-cached-val" class="text-cyan-300">-</b></span>
+          <span>Free: <b id="ram-free-val" class="text-emerald-400">-</b></span>
+        </div>
+      </div>
+
+      <!-- CPU Utilization -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-emerald-500/40 transition">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">CPU Load</span>
+          <span id="cpu-badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Idle</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span id="cpu-percent" class="text-3xl font-black text-white">--%</span>
+          <span id="cpu-loadavg" class="text-xs text-slate-400">Load: -</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+          <div id="bar-cpu" class="bg-emerald-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+          <span>Kernel Read: <span class="text-emerald-400">&lt; 1ms</span></span>
+          <span>Overhead: <span class="text-slate-200">0%</span></span>
+        </div>
+      </div>
+
+      <!-- Internal Storage -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-purple-500/40 transition">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">Internal Storage</span>
+          <span id="storage-badge" class="text-xs font-semibold px-2 py-0.5 rounded bg-purple-500/20 text-purple-400">-- / -- GB</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span id="storage-percent" class="text-3xl font-black text-white">--%</span>
+          <span id="storage-free" class="text-xs text-slate-400">- Free</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden">
+          <div id="bar-storage" class="bg-purple-500 h-full rounded-full transition-all duration-300" style="width: 0%"></div>
+        </div>
+        <div class="flex justify-between text-[11px] text-slate-400 mt-2">
+          <span>Used: <b id="storage-used-val" class="text-slate-200">-</b></span>
+          <span>Total: <b id="storage-total-val" class="text-slate-200">-</b></span>
+        </div>
+      </div>
+
+      <!-- TV Health & Thermals -->
+      <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 hover:border-amber-500/40 transition">
+        <div class="flex items-center justify-between mb-2">
+          <span class="text-xs font-bold uppercase tracking-wider text-slate-400">TV Health & Sentry</span>
+          <span class="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400">Adaptive</span>
+        </div>
+        <div class="flex items-baseline gap-2 mb-2">
+          <span class="text-3xl font-black text-white">Normal</span>
+          <span class="text-xs text-emerald-400">No Throttling</span>
+        </div>
+        <div class="text-[11px] text-slate-400 space-y-1 mt-1">
+          <div class="flex justify-between"><span>Active WebSockets:</span><span id="ws-count" class="text-slate-200">1</span></div>
+          <div class="flex justify-between"><span>Background TV Load:</span><span class="text-emerald-400 font-bold">Zero (Passive)</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TV Speed-Up & Quick Action Pill Bar -->
+    <div class="bg-slate-900/70 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4 shadow-md">
+      <div class="flex flex-wrap items-center gap-3">
+        <span class="text-xs font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5">
+          <svg class="w-4 h-4 text-amber-400" fill="currentColor" viewBox="0 0 20 20"><path d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z"/></svg>
+          Instant TV Boost:
+        </span>
+        <button onclick="setSpeedAnimations(0.5)" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition">⚡ Set Animations 0.5x</button>
+        <button onclick="setSpeedAnimations(0)" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition">🚀 Animations 0x (Instant)</button>
+        <button onclick="flushRam()" class="px-3 py-1.5 text-xs font-medium bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-lg border border-slate-700 transition">🧹 Flush Cached RAM</button>
+        <button onclick="openDebloatModal()" class="px-3 py-1.5 text-xs font-medium bg-indigo-950 hover:bg-indigo-900 text-indigo-300 rounded-lg border border-indigo-800 transition">🛡️ Bloatware Hunter</button>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="openRemoteModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md glow-blue transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+          Virtual Remote & Keyboard
+        </button>
+      </div>
+    </div>
+
+    <!-- Live Process Table (Task Manager) -->
+    <main class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+      <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
+        <div>
+          <h2 class="font-bold text-white text-base">Running Processes & Resource Hogs</h2>
+          <p class="text-xs text-slate-400">Live snapshot. Click "End Task" to immediately release memory from hung or background apps.</p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input id="process-search" oninput="filterProcesses()" type="text" placeholder="Filter processes..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 w-56">
+          <select id="process-filter" onchange="filterProcesses()" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white">
+            <option value="all">All Processes</option>
+            <option value="apps">Apps Only</option>
+            <option value="system">System / Daemons</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800">
+            <tr>
+              <th class="py-3 px-4">Process / App Name</th>
+              <th class="py-3 px-4">Package ID</th>
+              <th class="py-3 px-4">PID</th>
+              <th class="py-3 px-4">CPU %</th>
+              <th class="py-3 px-4">RAM (PSS)</th>
+              <th class="py-3 px-4">Type</th>
+              <th class="py-3 px-4 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="process-table-body" class="divide-y divide-slate-800/60 font-mono text-slate-300">
+            <tr>
+              <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
+                Connect to an Android TV to load live running processes.
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </main>
+  </div>
+
+  <!-- Footer -->
+  <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
+    <div>TvMaster v1.0.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
+    <div>Self-hosted Docker Hub Edition</div>
+  </footer>
+
+  <!-- --- MODALS --- -->
+
+  <!-- Auto-Discover Modal -->
+  <div id="modal-discover" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-md w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-base">Network Android TV Discovery</h3>
+        <button onclick="closeDiscoverModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+      <p class="text-xs text-slate-400">Scanning local subnet for Android TV devices with ADB (Port 5555) open...</p>
+      <div id="discover-list" class="space-y-2 min-h-[120px] max-h-60 overflow-y-auto">
+        <div class="text-center py-6 text-slate-500 text-xs">Click "Start Scan" to probe subnet</div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="startDiscoveryScan()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow glow-blue">Start Scan</button>
+        <button onclick="closeDiscoverModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold">Close</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bloatware Hunter & Debloat Modal -->
+  <div id="modal-debloat" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-lg w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div>
+          <h3 class="font-bold text-white text-base">Bloatware Hunter & Safe Debloat</h3>
+          <p class="text-xs text-slate-400">Freeze manufacturer telemetry & promo services without root</p>
+        </div>
+        <button onclick="closeDebloatModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+      <div id="debloat-list" class="space-y-2.5 max-h-80 overflow-y-auto text-xs">
+        <div class="text-center py-6 text-slate-500">Loading bloatware packages...</div>
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="closeDebloatModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl text-xs font-semibold hover:bg-slate-700">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Virtual Remote & Keyboard Modal -->
+  <div id="modal-remote" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-sm w-full shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-base">Virtual Remote & Keyboard</h3>
+        <button onclick="closeRemoteModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+
+      <!-- Keyboard Text Sender -->
+      <div class="space-y-1.5">
+        <label class="text-xs text-slate-400 font-medium">Send Text to Active TV Input:</label>
+        <div class="flex gap-2">
+          <input id="remote-text-input" type="text" placeholder="Type password or search query..." class="flex-1 bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-blue-500">
+          <button onclick="sendRemoteText()" class="px-3.5 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-semibold shadow">Send</button>
+        </div>
+      </div>
+
+      <!-- D-Pad Controls -->
+      <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 flex flex-col items-center gap-2">
+        <button onclick="sendRemoteKey('KEYCODE_DPAD_UP')" class="w-12 h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition">▲</button>
+        <div class="flex gap-3">
+          <button onclick="sendRemoteKey('KEYCODE_DPAD_LEFT')" class="w-12 h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition">◀</button>
+          <button onclick="sendRemoteKey('KEYCODE_DPAD_CENTER')" class="w-12 h-10 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold text-xs shadow glow-blue transition">OK</button>
+          <button onclick="sendRemoteKey('KEYCODE_DPAD_RIGHT')" class="w-12 h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition">▶</button>
+        </div>
+        <button onclick="sendRemoteKey('KEYCODE_DPAD_DOWN')" class="w-12 h-10 bg-slate-800 hover:bg-slate-700 text-white rounded-xl font-bold transition">▼</button>
+      </div>
+
+      <!-- Quick Action Navigation -->
+      <div class="grid grid-cols-3 gap-2 text-xs font-semibold">
+        <button onclick="sendRemoteKey('KEYCODE_BACK')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition">↩ Back</button>
+        <button onclick="sendRemoteKey('KEYCODE_HOME')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition">🏠 Home</button>
+        <button onclick="sendRemoteKey('KEYCODE_MENU')" class="py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl transition">☰ Menu</button>
+      </div>
+
+      <!-- Volume & Power -->
+      <div class="grid grid-cols-3 gap-2 text-xs font-semibold pt-1 border-t border-slate-800">
+        <button onclick="sendRemoteKey('KEYCODE_VOLUME_DOWN')" class="py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 transition">🔉 Vol -</button>
+        <button onclick="sendRemoteKey('KEYCODE_VOLUME_UP')" class="py-2 bg-slate-950 hover:bg-slate-800 text-slate-300 rounded-xl border border-slate-800 transition">🔊 Vol +</button>
+        <button onclick="rebootTv()" class="py-2 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded-xl border border-red-500/30 transition">⚡ Reboot</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="/js/app.js"></script>
+</body>
+</html>
