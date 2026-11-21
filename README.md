@@ -75,12 +75,40 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
 
 ---
 
-### Step 2: Deploy with Docker Compose (Recommended)
+### Step 2: Deploy with Docker Compose or Portainer (Recommended)
 
-1. Clone or copy the `tvmaster/` directory to your home server:
-   ```bash
-   cd tvmaster
+1. **Via Portainer / Dockge Stack or standard `docker-compose.yml`**:
+   ```yaml
+   version: '3.8'
+
+   services:
+     tvmaster:
+       image: ghcr.io/akhilgupta2007/tvmaster:latest
+       container_name: tvmaster
+       restart: unless-stopped
+       ports:
+         - "3055:3055"
+       environment:
+         - PORT=3055
+         - NODE_ENV=production
+         # Optional: set your TV IP to auto-connect on startup
+         # - TV_IP=10.0.0.13
+       volumes:
+         - tvmaster-adb-keys:/root/.android
+         - tvmaster-data:/app/data
+       healthcheck:
+         test: ["CMD", "curl", "-f", "http://localhost:3055/api/health"]
+         interval: 30s
+         timeout: 5s
+         retries: 3
+
+   volumes:
+     tvmaster-adb-keys:
+       name: tvmaster_adb_keys
+     tvmaster-data:
+       name: tvmaster_data
    ```
+
 2. Launch the container:
    ```bash
    docker compose up -d
@@ -90,7 +118,9 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
    http://<your-home-server-ip>:3055
    ```
 
-> **Note on Persistent Pairing:** The `docker-compose.yml` mounts a Docker volume (`tvmaster-adb-keys:/root/.android`). This ensures your ADB authorization keys persist across restarts so you only have to approve the TV screen prompt once!
+> **Note on Persistent Volumes:**
+> - `tvmaster-adb-keys` (`/root/.android`): Persists your ADB authorization keys so you only have to approve the TV screen prompt once!
+> - `tvmaster-data` (`/app/data`): Persists your saved TV device cards, custom nicknames, and configuration across container updates.
 
 ---
 

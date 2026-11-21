@@ -2,8 +2,7 @@ version: '3.8'
 
 services:
   tvmaster:
-    build: .
-    image: tvmaster:1.4.1
+    image: ghcr.io/akhilgupta2007/tvmaster:latest
     container_name: tvmaster
     restart: unless-stopped
     ports:
@@ -12,10 +11,12 @@ services:
       - PORT=3055
       - NODE_ENV=production
       # Optional: set your TV IP to auto-connect on startup
-      # - TV_IP=192.168.1.145
+      # - TV_IP=10.0.0.13
     volumes:
       # Persist ADB keys so you only click "Allow USB Debugging" on TV once
       - tvmaster-adb-keys:/root/.android
+      # Persist saved TV devices & configuration
+      - tvmaster-data:/app/data
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:3055/api/health"]
       interval: 30s
@@ -25,3 +26,6 @@ services:
 volumes:
   tvmaster-adb-keys:
     name: tvmaster_adb_keys
+  tvmaster-data:
+    name: tvmaster_data
+
