@@ -7,6 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.0] - 2026-11-21
+
+### Added
+* **Universal Streaming Device & Amazon Fire TV Support**:
+  * Extended TvMaster from Android TV-only to universally support **Amazon Fire TV / Firestick / Fire TV Cube**, **Google Chromecast with Google TV**, **NVIDIA Shield TV**, **Smart Projectors** (XGIMI, Formovie, Anker Nebula), and **Android Streaming Boxes** (onn., Xiaomi, MeCool).
+  * Implemented automatic device classification engine (`classifyDevice`) inspecting hardware manufacturer, model (`AFT*`, `Shield`, `Chromecast`, etc.), and system signatures to assign category badges and icons (`📺 Smart TV`, `🔥 Firestick`, `🛡️ NVIDIA Shield`, `⚪ Chromecast`, `📦 Streaming Box`, `📽️ Projector`).
+  * Added **Device Category Selector** in the Add Device modal for easy manual assignment.
+* **Auto-Active Device Card Synchronization (Fix for Disconnected Card Display)**:
+  * Resolved timing race condition on page load by orchestrating status check and device list retrieval with `Promise.allSettled`.
+  * Implemented backend auto-heal in `/api/devices` that dynamically injects and locks the currently active ADB connection as `isActive: true` even before disk persistence or on initial boot.
+  * Synchronized device card renderers so the connected TV/streaming device immediately displays the glowing blue-emerald active gradient, emerald pulsing dot (`● Active`), and `✓ Streaming` status.
+* **Curated Bloatware Hunter for Amazon Fire TV & Fire OS**:
+  * Added curated definitions for Amazon Fire TV telemetry and promo services (`com.amazon.whisperplay.contracts`, `com.amazon.device.sale.service`, `com.amazon.advertising`, `com.amazon.hedwig`, `com.amazon.kato`, `com.amazon.storm.lightning.services`).
+  * Expanded `KNOWN_APP_LABELS` catalog to decode Fire OS system apps (Silk Browser, Fire TV Launcher, Prime Video core daemons) and MediaTek HAL services (Audio Service, HW Composer, Codec C2).
+* **Telemetry Process Cleaning & Transient Probe Filtering**:
+  * Filtered out self-executing shell commands (`top`, `sh`, `-m`, `"`, `df`, `cat`) created during background telemetry polling, eliminating phantom process rows from the process table.
+  * Reassembled bracketed kernel thread names split by whitespace (e.g. `[pre_signal_task]`), preventing truncation to generic suffixes like `task]`.
+
 ## [1.4.1] - 2026-11-21
 
 ### Added

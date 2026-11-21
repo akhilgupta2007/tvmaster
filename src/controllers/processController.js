@@ -7,14 +7,24 @@ const { REGEX_PACKAGE } = require('../constants');
 
 // Curated list of known safe-to-disable manufacturer/vendor telemetry and promo services
 const KNOWN_BLOATWARE = [
-  { package: 'com.sony.dtv.b2b', name: 'Sony B2B Telemetry', vendor: 'Sony', safe: true },
-  { package: 'com.sony.dtv.customersupport', name: 'Sony Customer Support Service', vendor: 'Sony', safe: true },
+  // Google TV & Android TV
   { package: 'com.google.android.tv.recommendations', name: 'Android TV Recommendations / Ads', vendor: 'Google', safe: true },
   { package: 'com.google.android.videos', name: 'Google Play Movies & TV (if unused)', vendor: 'Google', safe: true },
   { package: 'com.google.android.play.games', name: 'Google Play Games TV', vendor: 'Google', safe: true },
+
+  // Amazon Fire TV & Firestick
+  { package: 'com.amazon.whisperplay.contracts', name: 'Amazon WhisperPlay Ads (FireTV)', vendor: 'Amazon', safe: true },
+  { package: 'com.amazon.device.sale.service', name: 'Amazon Retail Demo / Sales Service', vendor: 'Amazon', safe: true },
+  { package: 'com.amazon.advertising', name: 'Amazon Fire TV Ad Engine', vendor: 'Amazon', safe: true },
+  { package: 'com.amazon.hedwig', name: 'Amazon Fire TV Notifications / Promos', vendor: 'Amazon', safe: true },
+  { package: 'com.amazon.kato', name: 'Amazon Fire TV Recommendations', vendor: 'Amazon', safe: true },
+  { package: 'com.amazon.storm.lightning.services', name: 'Amazon Shopping TV Promo', vendor: 'Amazon', safe: true },
+
+  // Sony, Xiaomi, TCL Smart TVs
+  { package: 'com.sony.dtv.b2b', name: 'Sony B2B Telemetry', vendor: 'Sony', safe: true },
+  { package: 'com.sony.dtv.customersupport', name: 'Sony Customer Support Service', vendor: 'Sony', safe: true },
   { package: 'com.xiaomi.mitv.upgrade', name: 'Mi TV Telemetry / Upgrade Service', vendor: 'Xiaomi', safe: true },
-  { package: 'com.tcl.partner.tclapp', name: 'TCL Partner App', vendor: 'TCL', safe: true },
-  { package: 'com.amazon.whisperplay.contracts', name: 'Amazon WhisperPlay Ads (FireTV)', vendor: 'Amazon', safe: true }
+  { package: 'com.tcl.partner.tclapp', name: 'TCL Partner App', vendor: 'TCL', safe: true }
 ];
 
 class ProcessController {

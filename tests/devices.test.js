@@ -99,4 +99,34 @@ describe('TvMaster Device Management & Multi-TV Switching Tests', () => {
     assert.ok(Array.isArray(data.devices));
     assert.ok(Array.isArray(data.detectedSubnets));
   });
+
+  test('DeviceService: accurately classifies Amazon Fire TV, Shield, Chromecast, and TV', () => {
+    const { classifyDevice } = require('../src/services/deviceService');
+    const fire = classifyDevice('AFTMM', 'Amazon', 'Living Room Firestick');
+    assert.strictEqual(fire.type, 'firestick');
+    assert.strictEqual(fire.icon, '🔥');
+
+    const shield = classifyDevice('SHIELD Android TV', 'NVIDIA');
+    assert.strictEqual(shield.type, 'shield');
+    assert.strictEqual(shield.icon, '🛡️');
+
+    const cc = classifyDevice('Chromecast', 'Google');
+    assert.strictEqual(cc.type, 'chromecast');
+    assert.strictEqual(cc.icon, '⚪');
+
+    const proj = classifyDevice('Horizon Pro', 'XGIMI');
+    assert.strictEqual(proj.type, 'projector');
+    assert.strictEqual(proj.icon, '📽️');
+
+    const tv = classifyDevice('SmartTV 4K FFM', 'Hisense');
+    assert.strictEqual(tv.type, 'tv');
+    assert.strictEqual(tv.icon, '📺');
+  });
+
+  test('DeviceService: getDevices auto-heals and injects active device if missing from disk', () => {
+    const list = deviceService.getDevices('10.99.88.77');
+    const active = list.find((d) => d.ip === '10.99.88.77');
+    assert.ok(active);
+    assert.strictEqual(active.isActive, true);
+  });
 });

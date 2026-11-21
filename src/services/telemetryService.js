@@ -203,6 +203,17 @@ class TelemetryService {
 
       // Detect package name / command
       let name = parts[parts.length - 1];
+
+      // Reassemble bracketed kernel threads split across spaces (e.g. [kworker/2:4 task])
+      if (name.endsWith(']') && !name.startsWith('[')) {
+        for (let i = parts.length - 2; i >= 1; i--) {
+          if (parts[i].startsWith('[')) {
+            name = parts.slice(i, parts.length).join(' ');
+            break;
+          }
+        }
+      }
+
       // If last token is purely numeric or invalid, look backwards for command/package
       if (/^\d+$/.test(name) && parts.length > 2) {
         for (let i = parts.length - 1; i >= 1; i--) {
@@ -211,6 +222,27 @@ class TelemetryService {
             break;
           }
         }
+      }
+
+      // Clean trailing quotes or escape characters
+      name = name.replace(/^["']|["']$/g, '').trim();
+
+      // Filter out self-spawned ephemeral telemetry probe artifacts & shell tokens
+      if (
+        !name ||
+        name === 'top' ||
+        name === 'sh' ||
+        name === '-m' ||
+        name === '-n' ||
+        name === 'cat' ||
+        name === 'df' ||
+        name === '"' ||
+        name === "'" ||
+        name.startsWith('top ') ||
+        name.startsWith('sh -c') ||
+        (name.length <= 1 && !/^[a-zA-Z0-9]$/.test(name))
+      ) {
+        continue;
       }
 
       // Extract CPU and memory

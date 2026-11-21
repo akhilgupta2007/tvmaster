@@ -89,10 +89,10 @@ app.get('/api/status', (req, res) => {
   });
 });
 
-// Connect to TV
+// Connect to TV or Streaming Device
 app.post('/api/connect', async (req, res) => {
   try {
-    const { ip, port } = req.body;
+    const { ip, port, name, deviceType } = req.body;
     const result = await adbService.connect(ip, port);
     saveConfig({ lastIp: ip, lastPort: port || 5555 });
     
@@ -101,11 +101,13 @@ app.post('/api/connect', async (req, res) => {
     deviceService.addOrUpdateDevice({
       ip,
       port: port || 5555,
+      name,
       model: devInfo.model,
       manufacturer: devInfo.manufacturer,
       androidVersion: devInfo.androidVersion,
       apiLevel: devInfo.apiLevel,
-      screenResolution: devInfo.screenResolution
+      screenResolution: devInfo.screenResolution,
+      deviceType
     });
 
     // Request immediate telemetry update
@@ -131,6 +133,18 @@ app.post('/api/disconnect', async (req, res) => {
 // Get all saved TV profiles with active flag
 app.get('/api/devices', (req, res) => {
   const activeIp = adbService.connected ? adbService.deviceIp : null;
+  if (activeIp && !deviceService.getDeviceByIp(activeIp)) {
+    const devInfo = adbService.deviceInfo || {};
+    deviceService.addOrUpdateDevice({
+      ip: activeIp,
+      port: adbService.devicePort || 5555,
+      model: devInfo.model,
+      manufacturer: devInfo.manufacturer,
+      androidVersion: devInfo.androidVersion,
+      apiLevel: devInfo.apiLevel,
+      screenResolution: devInfo.screenResolution
+    });
+  }
   res.json({
     activeIp,
     devices: deviceService.getDevices(activeIp)

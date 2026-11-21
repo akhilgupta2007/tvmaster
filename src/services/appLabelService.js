@@ -66,6 +66,25 @@ const KNOWN_APP_LABELS = {
   'com.android.packageinstaller': 'Package Installer',
   'android': 'Android System Kernel',
 
+  // Amazon Fire TV & Fire OS Ecosystem
+  'com.amazon.whisperplay.contracts': 'Amazon WhisperPlay Screen Sharing',
+  'com.amazon.device.sale.service': 'Amazon Retail Demo / Sales Service',
+  'com.amazon.advertising': 'Amazon Fire TV Ad Engine',
+  'com.amazon.tv.launcher': 'Fire TV Home Launcher',
+  'com.amazon.tv.settings': 'Fire TV Settings',
+  'com.amazon.hedwig': 'Fire TV Notifications & News',
+  'com.amazon.kato': 'Fire TV Recommendations Engine',
+  'com.amazon.bueller.music': 'Amazon Music',
+  'com.amazon.cloud9': 'Amazon Silk Web Browser',
+  'com.amazon.ftv.screensaver': 'Fire TV Ambient Screensaver',
+  'com.amazon.webview': 'Amazon System WebView',
+  'com.amazon.device.messaging': 'Amazon Cloud Messaging',
+  'com.amazon.device.crashmanager': 'Amazon Crash Reporter',
+  'com.amazon.storm.lightning.services': 'Amazon Shopping TV',
+  'com.amazon.vids': 'Prime Video',
+  'com.amazon.avod': 'Prime Video Core Service',
+  'com.amazon.firetv.youtube': 'YouTube on Fire TV',
+
   // Hisense / MediaTek / OEM System Services
   'com.mediatek.tis': 'MediaTek TV Input Service',
   'com.mediatek.tvcm': 'MediaTek Channel Manager',
@@ -73,11 +92,17 @@ const KNOWN_APP_LABELS = {
   'com.jamdeo.tv.vod': 'VIDAA / Hisense Video Service',
   'com.hisense.tv.service': 'Hisense TV Service',
   'com.hisense.service.telemetry': 'Hisense Telemetry',
+  'vendor.mediatek.hardware.audio.service': 'MediaTek Audio Service',
+  'vendor.mediatek.hardware.hwcomposer.composer@2.5-service': 'MediaTek HW Composer',
+  'android.hardware.media.c2@1.1-mediatek': 'MediaTek Codec C2',
+  'android.hardware.wifi@1.0-service': 'Android WiFi HAL Service',
+  'vendor.hardware.tv.earc-service.mediatek': 'MediaTek eARC Audio Service',
+  'voicesdk_server': 'Voice Assistant Daemon',
+  'cpu_audio': 'Hardware Audio Engine',
   'com.sony.dtv.b2b': 'Sony B2B Telemetry',
   'com.sony.dtv.customersupport': 'Sony Customer Support',
   'com.tcl.partner.tclapp': 'TCL Partner App',
-  'com.xiaomi.mitv.upgrade': 'Mi TV Upgrade Service',
-  'com.amazon.whisperplay.contracts': 'Amazon WhisperPlay Service'
+  'com.xiaomi.mitv.upgrade': 'Mi TV Upgrade Service'
 };
 
 class AppLabelService {

@@ -60,14 +60,13 @@ const selectSortField = document.getElementById('select-sort-field');
 const selectPageLimit = document.getElementById('select-page-limit');
 
 // Initialize on page load
-window.addEventListener('DOMContentLoaded', () => {
+window.addEventListener('DOMContentLoaded', async () => {
   if (lastIp) {
     inputIp.value = lastIp;
   }
   setupDragAndDrop();
-  fetchDevicesList();
-  checkServerStatus();
   initWebSocket();
+  await Promise.allSettled([checkServerStatus(), fetchDevicesList()]);
 });
 
 // --- Server Status & Initial Check ---
@@ -78,6 +77,7 @@ async function checkServerStatus() {
     if (data.connected) {
       setConnectedState(true, data.deviceIp, data.deviceInfo);
       fetchPackagesList();
+      fetchDevicesList();
       if (ws && ws.readyState === WebSocket.OPEN) {
         ws.send(JSON.stringify({ type: 'refresh_now' }));
       }
@@ -763,68 +763,78 @@ function renderTvCards(devices, activeIp) {
     countBadge.textContent = `${devices.length} saved`;
   }
 
+  const currentIp = activeIp || (isConnected && inputIp ? inputIp.value.trim() : null);
+
   let html = '';
 
   for (const dev of devices) {
-    const isActive = Boolean(activeIp && dev.ip === activeIp && isConnected);
+    const isActive = Boolean(dev.isActive || (currentIp && (dev.ip === currentIp || dev.id === currentIp || dev.id?.startsWith(currentIp + ':'))));
+    const icon = dev.deviceIcon || (dev.deviceType === 'firestick' ? '🔥' : dev.deviceType === 'shield' ? '🛡️' : dev.deviceType === 'box' ? '📦' : dev.deviceType === 'projector' ? '📽️' : '📺');
+    const typeLabel = dev.deviceTypeLabel || (dev.deviceType === 'firestick' ? 'Fire TV / Stick' : dev.deviceType === 'shield' ? 'NVIDIA Shield' : dev.deviceType === 'box' ? 'Streaming Box' : dev.deviceType === 'projector' ? 'Smart Projector' : 'Smart TV');
 
     if (isActive) {
-      // Active TV Card (High visual emphasis)
+      // Active Device Card (High visual emphasis)
       html += `
-        <div class="bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-blue-500 rounded-2xl p-4 shadow-xl glow-blue relative flex flex-col justify-between transition group">
+        <div class="bg-gradient-to-br from-slate-900 via-slate-900 to-blue-950/40 border-2 border-blue-500 rounded-2xl p-4 shadow-xl glow-blue relative flex flex-col justify-between transition group">
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <div class="w-10 h-10 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-xl shadow-inner">
+                ${icon}
               </div>
               <div>
                 <div class="flex items-center gap-1.5">
-                  <h4 class="font-bold text-white text-sm leading-tight">${escapeHtml(dev.name || 'Android TV')}</h4>
-                  <button onclick="promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename TV">✏️</button>
+                  <h4 class="font-bold text-white text-sm leading-tight">${escapeHtml(dev.name || typeLabel)}</h4>
+                  <button onclick="promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename Device">✏️</button>
                 </div>
-                <p class="text-[11px] font-mono text-blue-400">${dev.ip}:${dev.port || 5555}</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="text-[10px] font-medium bg-blue-500/20 text-blue-300 px-1.5 py-0.2 rounded">${typeLabel}</span>
+                  <span class="text-[11px] font-mono text-slate-400">${dev.ip}:${dev.port || 5555}</span>
+                </div>
               </div>
             </div>
-            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1 shadow-sm">
               <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
             </span>
           </div>
 
           <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
             <div class="flex items-center gap-1.5">
-              <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">${dev.model || 'Connected'}</span>
-              <span>${dev.screenResolution || ''}</span>
+              <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">${escapeHtml(dev.model || 'Connected')}</span>
+              <span>${escapeHtml(dev.screenResolution || '')}</span>
             </div>
-            <span class="text-xs font-semibold text-blue-400 flex items-center gap-1">
+            <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
               ✓ Streaming
             </span>
           </div>
         </div>
       `;
     } else {
-      // Standby / Other TV Card (1-Click Switchable)
+      // Standby / Other Device Card (1-Click Switchable)
       html += `
         <div onclick="switchTv('${dev.ip}', ${dev.port || 5555}, '${escapeHtml(dev.name || '')}')" class="bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-4 shadow cursor-pointer relative flex flex-col justify-between transition group hover:-translate-y-0.5">
           <div class="flex items-start justify-between gap-2">
             <div class="flex items-center gap-2.5">
-              <div class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-blue-400 transition">
-                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <div class="w-10 h-10 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-xl group-hover:scale-105 transition">
+                ${icon}
               </div>
               <div>
                 <div class="flex items-center gap-1.5">
-                  <h4 class="font-bold text-slate-200 group-hover:text-white text-sm leading-tight">${escapeHtml(dev.name || 'Android TV')}</h4>
-                  <button onclick="event.stopPropagation(); promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename TV">✏️</button>
+                  <h4 class="font-bold text-slate-200 group-hover:text-white text-sm leading-tight">${escapeHtml(dev.name || typeLabel)}</h4>
+                  <button onclick="event.stopPropagation(); promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename Device">✏️</button>
                 </div>
-                <p class="text-[11px] font-mono text-slate-400">${dev.ip}:${dev.port || 5555}</p>
+                <div class="flex items-center gap-1.5 mt-0.5">
+                  <span class="text-[10px] font-medium bg-slate-800 text-slate-400 px-1.5 py-0.2 rounded">${typeLabel}</span>
+                  <span class="text-[11px] font-mono text-slate-400">${dev.ip}:${dev.port || 5555}</span>
+                </div>
               </div>
             </div>
-            <button onclick="event.stopPropagation(); deleteTvCard('${dev.ip}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 text-xs transition px-1" title="Remove TV Card">✕</button>
+            <button onclick="event.stopPropagation(); deleteTvCard('${dev.ip}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 text-xs transition px-1" title="Remove Device">✕</button>
           </div>
 
           <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-            <span class="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-400">${dev.model || 'Saved TV'}</span>
+            <span class="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-400">${escapeHtml(dev.model || 'Saved Device')}</span>
             <button onclick="event.stopPropagation(); switchTv('${dev.ip}', ${dev.port || 5555}, '${escapeHtml(dev.name || '')}')" class="px-2.5 py-1 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-lg font-semibold text-xs transition border border-slate-700 hover:border-transparent flex items-center gap-1">
-              ⚡ Switch TV
+              ⚡ Switch Device
             </button>
           </div>
         </div>
@@ -832,14 +842,14 @@ function renderTvCards(devices, activeIp) {
     }
   }
 
-  // Add TV Card Button at the end
+  // Add Device Card Button at the end
   html += `
     <div onclick="openAddTvModal()" class="border-2 border-dashed border-slate-800 hover:border-blue-500/50 bg-slate-950/40 hover:bg-blue-600/5 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition min-h-[110px] group">
       <div class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-blue-600/20 text-slate-400 group-hover:text-blue-400 flex items-center justify-center mb-1.5 transition">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
       </div>
-      <span class="text-xs font-bold text-slate-300 group-hover:text-white">Add Another TV</span>
-      <span class="text-[10px] text-slate-500">Save by IP or scan network</span>
+      <span class="text-xs font-bold text-slate-300 group-hover:text-white">Add Device</span>
+      <span class="text-[10px] text-slate-500">TV, Firestick, Chromecast, Box</span>
     </div>
   `;
 
@@ -847,7 +857,7 @@ function renderTvCards(devices, activeIp) {
 }
 
 // 1-Click Switch TV Handler
-async function switchTv(ip, port = 5555, name = '') {
+async function switchTv(ip, port = 5555, name = '', deviceType = '') {
   inputIp.value = ip;
   inputPort.value = port;
   btnConnect.disabled = true;
@@ -857,7 +867,7 @@ async function switchTv(ip, port = 5555, name = '') {
     const res = await fetch('/api/devices/switch', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ ip, port, name })
+      body: JSON.stringify({ ip, port, name, deviceType })
     });
     const data = await res.json();
     if (data.success) {
@@ -869,7 +879,7 @@ async function switchTv(ip, port = 5555, name = '') {
         ws.send(JSON.stringify({ type: 'refresh_now' }));
       }
     } else {
-      alert(`Failed to switch TV: ${data.error || 'Could not connect'}`);
+      alert(`Failed to switch device: ${data.error || 'Could not connect'}`);
       setConnectedState(false);
       fetchDevicesList();
     }
@@ -895,11 +905,12 @@ async function saveAndSwitchNewTv() {
   const ip = document.getElementById('add-tv-ip').value.trim();
   const port = parseInt(document.getElementById('add-tv-port').value.trim(), 10) || 5555;
   const name = document.getElementById('add-tv-name').value.trim();
+  const deviceType = document.getElementById('add-tv-type')?.value || 'tv';
 
   if (!ip) return alert('Please enter a valid IP address');
 
   closeAddTvModal();
-  await switchTv(ip, port, name);
+  await switchTv(ip, port, name, deviceType);
 }
 
 // Rename TV Handlers
