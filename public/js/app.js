@@ -797,14 +797,21 @@ function renderTvCards(devices, activeIp) {
             </span>
           </div>
 
-          <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
-            <div class="flex items-center gap-1.5">
+          <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400 gap-1.5 flex-wrap">
+            <div class="flex items-center gap-1.5 flex-wrap">
               <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">${escapeHtml(dev.model || 'Connected')}</span>
-              <span>${escapeHtml(dev.screenResolution || '')}</span>
+              <span class="text-blue-300 font-mono font-medium">${escapeHtml(dev.displaySpecs?.activeMode?.label || dev.screenResolution || '3840x2160')}</span>
+              ${dev.displaySpecs?.hasHdr ? `<span class="bg-amber-500/20 text-amber-300 border border-amber-500/30 px-1.5 py-0.2 rounded text-[10px] font-semibold">🌈 ${escapeHtml(dev.displaySpecs.hdrTypes.slice(0, 2).join('/'))}</span>` : ''}
+              ${dev.displaySpecs?.allmSupported ? `<span class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-1.5 py-0.2 rounded text-[10px] font-semibold">🎮 ALLM</span>` : ''}
             </div>
-            <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
-              ✓ Streaming
-            </span>
+            <div class="flex items-center gap-2">
+              <button onclick="openDisplaySpecsModal()" class="text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition flex items-center gap-0.5" title="View Full Video & HDMI Handshake Specs">
+                🔍 Specs
+              </button>
+              <span class="text-xs font-semibold text-emerald-400 flex items-center gap-1">
+                ✓ Streaming
+              </span>
+            </div>
           </div>
         </div>
       `;
@@ -1249,6 +1256,155 @@ function startRebootReconnectLoop() {
 
 function rebootTv() {
   openRebootModal();
+}
+
+// --- Display & Video Specs Modal Handlers ---
+let cachedDisplaySpecs = null;
+
+function openDisplaySpecsModal() {
+  const modal = document.getElementById('modal-display-specs');
+  if (modal) {
+    modal.classList.remove('hidden');
+    fetchDisplaySpecs();
+  }
+}
+
+function closeDisplaySpecsModal() {
+  const modal = document.getElementById('modal-display-specs');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+async function fetchDisplaySpecs(force = false) {
+  const container = document.getElementById('display-specs-content');
+  if (!container) return;
+
+  if (force || !cachedDisplaySpecs) {
+    container.innerHTML = `
+      <div class="text-center py-8 text-slate-500">
+        <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-indigo-500 border-t-transparent mb-2"></div>
+        <p>Querying HDMI display capabilities...</p>
+      </div>
+    `;
+  }
+
+  try {
+    const res = await fetch(`/api/device/display?refresh=${force ? 'true' : 'false'}`);
+    const data = await res.json();
+
+    if (!data.success || !data.displaySpecs) {
+      container.innerHTML = `
+        <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center text-slate-400">
+          <p class="font-semibold text-amber-400 mb-1">Display Specs Unavailable</p>
+          <p class="text-[11px]">${data.error || 'Could not query dumpsys display from device.'}</p>
+        </div>
+      `;
+      return;
+    }
+
+    cachedDisplaySpecs = data.displaySpecs;
+    renderDisplaySpecsContent(data.displaySpecs, data.deviceInfo);
+  } catch (err) {
+    container.innerHTML = `
+      <div class="p-4 rounded-xl bg-slate-950 border border-slate-800 text-center text-rose-400">
+        <p class="font-semibold mb-1">Failed to query display capabilities</p>
+        <p class="text-[11px] text-slate-400">${escapeHtml(err.message)}</p>
+      </div>
+    `;
+  }
+}
+
+function renderDisplaySpecsContent(specs, info) {
+  const container = document.getElementById('display-specs-content');
+  if (!container || !specs) return;
+
+  const active = specs.activeMode || { width: 3840, height: 2160, fps: 60, label: '3840x2160 @ 60Hz' };
+  const allHdr = ['Dolby Vision', 'HDR10+', 'HDR10', 'HLG'];
+
+  container.innerHTML = `
+    <!-- Top Active Mode Banner -->
+    <div class="bg-gradient-to-r from-indigo-950/60 to-slate-950 p-4 rounded-2xl border border-indigo-500/30 flex items-center justify-between">
+      <div>
+        <span class="text-[10px] uppercase font-bold text-indigo-400 tracking-wider">Active Output Resolution</span>
+        <h3 class="text-xl font-black text-white mt-0.5 font-mono">${active.width} × ${active.height}</h3>
+        <p class="text-xs text-slate-300 font-medium">${active.width >= 3840 ? '4K Ultra High Definition (UHD)' : active.width >= 1920 ? 'Full HD (1080p)' : 'Standard HD'}</p>
+      </div>
+      <div class="text-right space-y-1">
+        <span class="px-3 py-1 rounded-full text-xs font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 inline-block font-mono">
+          ${active.fps ? active.fps + ' Hz' : '60 Hz'}
+        </span>
+        <div class="text-[11px] text-slate-400 font-mono">${specs.density ? specs.density + ' DPI' : ''}</div>
+      </div>
+    </div>
+
+    <!-- High Dynamic Range (HDR) Matrix -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider flex items-center gap-1.5">
+          <span>🌈 High Dynamic Range (HDR) Formats</span>
+        </h4>
+        <span class="text-[10px] text-slate-400">${specs.hasHdr ? specs.hdrTypes.length + ' supported' : 'SDR only'}</span>
+      </div>
+      <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        ${allHdr.map((fmt) => {
+          const supported = specs.hdrTypes && specs.hdrTypes.includes(fmt);
+          return `
+            <div class="p-2.5 rounded-xl border ${supported ? 'bg-amber-500/10 border-amber-500/40 text-amber-300' : 'bg-slate-950 border-slate-800 text-slate-600'} text-center transition">
+              <div class="text-xs font-bold">${fmt}</div>
+              <div class="text-[10px] mt-0.5 font-medium ${supported ? 'text-emerald-400 font-bold' : 'text-slate-500'}">
+                ${supported ? '✓ Supported' : '—'}
+              </div>
+            </div>
+          `;
+        }).join('')}
+      </div>
+    </div>
+
+    <!-- Gaming & Latency Features -->
+    <div class="space-y-2">
+      <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">
+        🎮 Gaming & Low-Latency HDMI Features
+      </h4>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-white">Auto Low Latency Mode (ALLM)</div>
+            <div class="text-[10px] text-slate-400">Switches TV to Game Mode automatically</div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${specs.allmSupported ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'}">
+            ${specs.allmSupported ? '✓ Active' : 'Not Supported'}
+          </span>
+        </div>
+        <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-center justify-between">
+          <div>
+            <div class="font-semibold text-white">Minimal Post-Processing</div>
+            <div class="text-[10px] text-slate-400">Low-latency video rendering mode</div>
+          </div>
+          <span class="px-2 py-0.5 rounded text-[10px] font-bold ${specs.gameModeSupported ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30' : 'bg-slate-800 text-slate-500'}">
+            ${specs.gameModeSupported ? '✓ Supported' : 'Standard'}
+          </span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Supported Resolution & Refresh Rate Modes -->
+    <div class="space-y-2">
+      <div class="flex items-center justify-between">
+        <h4 class="text-xs font-bold text-slate-300 uppercase tracking-wider">
+          🖥️ Supported Video Modes & FPS
+        </h4>
+        <span class="text-[10px] text-slate-400">${specs.supportedModes ? specs.supportedModes.length : 1} modes</span>
+      </div>
+      <div class="flex flex-wrap gap-1.5 max-h-36 overflow-y-auto p-1.5 bg-slate-950 rounded-xl border border-slate-800">
+        ${(specs.supportedModes && specs.supportedModes.length > 0 ? specs.supportedModes : [active]).map((m) => `
+          <span class="px-2.5 py-1 rounded-lg text-[11px] font-mono font-medium bg-slate-900 border border-slate-700 text-slate-200">
+            ${escapeHtml(m.label || m.width + 'x' + m.height + ' @ ' + Math.round(m.fps) + 'Hz')}
+          </span>
+        `).join('')}
+      </div>
+    </div>
+  `;
 }
 
 function escapeHtml(str) {

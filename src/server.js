@@ -107,6 +107,7 @@ app.post('/api/connect', async (req, res) => {
       androidVersion: devInfo.androidVersion,
       apiLevel: devInfo.apiLevel,
       screenResolution: devInfo.screenResolution,
+      displaySpecs: devInfo.displaySpecs,
       deviceType
     });
 
@@ -130,6 +131,25 @@ app.post('/api/disconnect', async (req, res) => {
 
 // --- TV Device Profiles & 1-Click Card Switching ---
 
+// Get static display & video capabilities (Zero Recurring Load)
+app.get('/api/device/display', async (req, res) => {
+  try {
+    if (!adbService.connected) {
+      return res.status(400).json({ error: 'No device currently connected' });
+    }
+    const force = req.query.refresh === 'true';
+    const specs = await adbService.getDisplaySpecs(force);
+    return res.json({
+      success: true,
+      deviceIp: adbService.deviceIp,
+      deviceInfo: adbService.deviceInfo,
+      displaySpecs: specs
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
 // Get all saved TV profiles with active flag
 app.get('/api/devices', (req, res) => {
   const activeIp = adbService.connected ? adbService.deviceIp : null;
@@ -142,7 +162,8 @@ app.get('/api/devices', (req, res) => {
       manufacturer: devInfo.manufacturer,
       androidVersion: devInfo.androidVersion,
       apiLevel: devInfo.apiLevel,
-      screenResolution: devInfo.screenResolution
+      screenResolution: devInfo.screenResolution,
+      displaySpecs: devInfo.displaySpecs
     });
   }
   res.json({
@@ -179,7 +200,9 @@ app.post('/api/devices/switch', async (req, res) => {
         manufacturer: devInfo.manufacturer,
         androidVersion: devInfo.androidVersion,
         apiLevel: devInfo.apiLevel,
-        screenResolution: devInfo.screenResolution
+        screenResolution: devInfo.screenResolution,
+        displaySpecs: devInfo.displaySpecs,
+        deviceType
       });
       saveConfig({ lastIp: ip, lastPort: targetPort });
       await telemetryService.collectTelemetry();

@@ -136,4 +136,30 @@ describe('TvMaster API & Security Validation Tests', () => {
     const data = await res.json();
     assert.ok(data.error);
   });
+
+  test('GET /api/device/display requires connected device', async () => {
+    const res = await fetch(`${baseUrl}/api/device/display`);
+    assert.strictEqual(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error);
+  });
+
+  test('AdbService: accurately parses dumpsys display output (4K, FPS, HDR, ALLM)', () => {
+    const adbService = require('../src/services/adbService');
+    const sampleRaw = `
+DisplayDeviceInfo{"Built-in Screen": uniqueId="local:0", 3840 x 2160, modeId 1, defaultModeId 1, supportedModes [{id=1, width=3840, height=2160, fps=60.000004, alternativeRefreshRates=[]}, {id=2, width=1920, height=1080, fps=120.00001, alternativeRefreshRates=[]}], colorMode 0, supportedColorModes [0], hdrCapabilities HdrCapabilities{mSupportedHdrTypes=[1, 2, 3, 4], mMaxLuminance=100.0, mMaxAverageLuminance=50.0, mMinLuminance=0.05}, allmSupported true, gameContentTypeSupported false, density 320, 80.0 x 80.0 dpi}
+mActiveSfDisplayMode=DisplayMode{id=0, width=3840, height=2160, xDpi=80.0, yDpi=80.0, refreshRate=60.000004}
+    `;
+
+    const specs = adbService.parseDisplaySpecs(sampleRaw);
+    assert.ok(specs);
+    assert.strictEqual(specs.activeMode.width, 3840);
+    assert.strictEqual(specs.activeMode.height, 2160);
+    assert.strictEqual(specs.activeMode.fps, 60);
+    assert.strictEqual(specs.density, 320);
+    assert.strictEqual(specs.hasHdr, true);
+    assert.deepStrictEqual(specs.hdrTypes, ['Dolby Vision', 'HDR10', 'HLG', 'HDR10+']);
+    assert.strictEqual(specs.allmSupported, true);
+    assert.ok(specs.supportedModes.length >= 2);
+  });
 });

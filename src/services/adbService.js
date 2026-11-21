@@ -28,6 +28,7 @@ class AdbService {
       screenResolution: 'Unknown'
     };
     this.isConnecting = false;
+    this.displaySpecs = null;
   }
 
   /**
@@ -83,6 +84,7 @@ class AdbService {
     }
     this.connected = false;
     this.deviceIp = null;
+    this.displaySpecs = null;
     return { success: true, message: 'Disconnected' };
   }
 
@@ -134,10 +136,129 @@ class AdbService {
         manufacturer: manufacturer || 'Generic',
         androidVersion: androidVersion || 'Unknown',
         apiLevel,
-        screenResolution
+        screenResolution,
+        displaySpecs: null
       };
+
+      // Query display specs once on connection (zero recurring load)
+      await this.getDisplaySpecs();
     } catch (e) {
       // Keep existing info if command fails
+    }
+  }
+
+  /**
+   * Parse dumpsys display output to extract static display capabilities, refresh rates, HDR & ALLM
+   */
+  parseDisplaySpecs(raw) {
+    if (!raw || typeof raw !== 'string') return null;
+
+    // 1. Density
+    let density = null;
+    const densityMatch = raw.match(/density\s+(\d+)/i);
+    if (densityMatch) density = parseInt(densityMatch[1], 10);
+
+    // 2. Active Mode (width, height, fps)
+    let activeMode = null;
+    const activeMatch = raw.match(/mActiveSfDisplayMode=DisplayMode\{[^}]*width=(\d+),\s*height=(\d+)[^}]*refreshRate=([0-9.]+)/) ||
+                        raw.match(/DisplayDeviceInfo\{[^}]*?(\d+)\s*x\s*(\d+)[^}]*?fps=([0-9.]+)/i) ||
+                        raw.match(/DisplayInfo\{[^}]*?real\s*(\d+)\s*x\s*(\d+)[^}]*?modes\s*\[\{[^}]*fps=([0-9.]+)/i);
+    if (activeMatch) {
+      const w = parseInt(activeMatch[1], 10);
+      const h = parseInt(activeMatch[2], 10);
+      const fps = Math.round(parseFloat(activeMatch[3]) * 100) / 100;
+      activeMode = {
+        width: w,
+        height: h,
+        fps,
+        label: `${w}x${h} @ ${Math.round(fps)}Hz`
+      };
+    }
+
+    // 3. Supported Modes
+    const supportedModes = [];
+    const modeRegex = /width=(\d+),\s*height=(\d+),\s*fps=([0-9.]+)/g;
+    let m;
+    const seen = new Set();
+    while ((m = modeRegex.exec(raw)) !== null) {
+      const w = parseInt(m[1], 10);
+      const h = parseInt(m[2], 10);
+      const fps = Math.round(parseFloat(m[3]) * 100) / 100;
+      const key = `${w}x${h}@${Math.round(fps)}`;
+      if (!seen.has(key)) {
+        seen.add(key);
+        supportedModes.push({
+          width: w,
+          height: h,
+          fps,
+          label: `${w}x${h} @ ${Math.round(fps)}Hz`
+        });
+      }
+    }
+
+    supportedModes.sort((a, b) => (b.width * b.height) - (a.width * a.height) || b.fps - a.fps);
+
+    // 4. HDR Capabilities
+    const hdrTypes = [];
+    const hdrMatch = raw.match(/HdrCapabilities\{mSupportedHdrTypes=\[([^\]]*)\](?:,\s*mMaxLuminance=([0-9.]+))?(?:,\s*mMaxAverageLuminance=([0-9.]+))?(?:,\s*mMinLuminance=([0-9.]+))?/i);
+    let maxLuminance = null;
+    let minLuminance = null;
+
+    if (hdrMatch) {
+      const rawTypes = hdrMatch[1].split(',').map((s) => s.trim()).filter(Boolean);
+      const typeMap = {
+        '1': 'Dolby Vision',
+        '2': 'HDR10',
+        '3': 'HLG',
+        '4': 'HDR10+'
+      };
+      for (const t of rawTypes) {
+        if (typeMap[t]) hdrTypes.push(typeMap[t]);
+      }
+      if (hdrMatch[2]) maxLuminance = parseFloat(hdrMatch[2]);
+      if (hdrMatch[4]) minLuminance = parseFloat(hdrMatch[4]);
+    }
+
+    // 5. ALLM (Auto Low Latency Mode) & Game Mode
+    const allmSupported = /allmSupported\s*true/i.test(raw) || /mAllmSupported=true/i.test(raw);
+    const gameModeSupported = /minimalPostProcessingSupported\s*true/i.test(raw) || /gameContentTypeSupported\s*true/i.test(raw);
+
+    return {
+      activeMode: activeMode || (supportedModes.length > 0 ? supportedModes[0] : null),
+      supportedModes,
+      hdrTypes,
+      hasHdr: hdrTypes.length > 0,
+      hdrSummary: hdrTypes.length > 0 ? hdrTypes.join(' / ') : 'SDR Only',
+      allmSupported,
+      gameModeSupported,
+      density,
+      luminance: {
+        max: maxLuminance,
+        min: minLuminance
+      }
+    };
+  }
+
+  /**
+   * Query static display and video output capabilities (Zero Recurring Load)
+   */
+  async getDisplaySpecs(force = false) {
+    if (this.displaySpecs && !force) {
+      return this.displaySpecs;
+    }
+    if (!this.connected) {
+      return null;
+    }
+
+    try {
+      const raw = await this.shell('dumpsys display', 4000);
+      this.displaySpecs = this.parseDisplaySpecs(raw);
+      if (this.deviceInfo && this.displaySpecs) {
+        this.deviceInfo.displaySpecs = this.displaySpecs;
+      }
+      return this.displaySpecs;
+    } catch (e) {
+      return this.displaySpecs || null;
     }
   }
 

@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.5.1] - 2026-11-21
+
+### Added
+* **Display Capabilities, Video Modes & HDR Specs Inspector (Zero Recurring Load)**:
+  * Implemented static display capability extraction (`dumpsys display`) querying HDMI handshake and panel capabilities **once on connection** with **0% background recurring TV load**.
+  * **Video Output & FPS Modes**: Detects active display resolution, refresh rate/FPS (e.g. `3840x2160 @ 60.00 Hz`), display density (`320 DPI`), and lists all supported video output modes (4K 60Hz, 1080p, 24p cinema).
+  * **High Dynamic Range (HDR) Matrix**: Real-time detection and visual status matrix for **Dolby Vision**, **HDR10+**, **HDR10**, and **HLG** with peak luminance reporting.
+  * **Gaming & Low Latency**: Auto-detects **Auto Low Latency Mode (ALLM)** and minimal post-processing Game Mode support.
+  * **Display & Video Specs Modal (`#modal-display-specs`)**: Sleek Cyber-Dark modal displaying the full hardware HDMI handshake with 1-click re-query.
+  * **Active Device Card Badges**: Display mode (`3840x2160 @ 60Hz`), HDR badges (`🌈 Dolby Vision/HDR10`), ALLM indicators, and `🔍 Specs` shortcut directly on the active card.
+  * Added `GET /api/device/display` endpoint with automated tests (42/42 tests passing).
+
 ## [1.5.0] - 2026-11-21
 
 ### Added

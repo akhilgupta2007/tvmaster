@@ -126,7 +126,7 @@ class DeviceService {
     return this.devices.find((d) => d.ip === ip);
   }
 
-  addOrUpdateDevice({ ip, port = 5555, name, model, manufacturer, androidVersion, apiLevel, screenResolution, deviceType }) {
+  addOrUpdateDevice({ ip, port = 5555, name, model, manufacturer, androidVersion, apiLevel, screenResolution, deviceType, displaySpecs }) {
     if (!ip) return null;
     const cleanIp = String(ip).trim();
     const cleanPort = parseInt(port, 10) || 5555;
@@ -142,6 +142,7 @@ class DeviceService {
       if (androidVersion) existing.androidVersion = androidVersion;
       if (apiLevel) existing.apiLevel = apiLevel;
       if (screenResolution) existing.screenResolution = screenResolution;
+      if (displaySpecs) existing.displaySpecs = displaySpecs;
       existing.deviceType = deviceType || classification.type;
       existing.deviceTypeLabel = classification.label;
       existing.deviceIcon = classification.icon;
@@ -161,6 +162,7 @@ class DeviceService {
         deviceType: deviceType || classification.type,
         deviceTypeLabel: classification.label,
         deviceIcon: classification.icon,
+        displaySpecs: displaySpecs || null,
         lastSeen: new Date().toISOString()
       };
       this.devices.push(existing);
