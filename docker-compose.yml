@@ -3,7 +3,7 @@ version: '3.8'
 services:
   tvmaster:
     build: .
-    image: tvmaster:1.4.0
+    image: tvmaster:1.4.1
     container_name: tvmaster
     restart: unless-stopped
     ports:

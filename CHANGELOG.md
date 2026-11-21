@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.1] - 2026-11-21
+
+### Added
+* **Official TvMaster Brand Logo & Favicon**:
+  * Generated high-resolution 3D cyberpunk app icon (`public/assets/logo.jpg`).
+  * Crafted ultra-crisp vector SVG logo (`public/assets/logo.svg`) and browser favicon (`public/favicon.svg`) featuring a glassmorphic 4K smart display with cyber-cyan telemetry pulse wave.
+* **Decluttered & Balanced UI Architecture**:
+  * Streamlined top header: removed redundant manual IP/port text boxes in favor of direct navbar controls (polling speed, refresh, discovery, and add TV).
+  * Removed redundant secondary "Device Details Bar", elevating specs directly into the interactive Active TV Card.
+  * Balanced 3-column primary telemetry grid (RAM, CPU, Storage) with generous breathing room and high-contrast typography.
+  * Consolidated Quick Actions into a unified action toolbar cleanly dividing performance boost pills from device controls.
+
 ## [1.4.0] - 2026-11-21
 
 ### Added
