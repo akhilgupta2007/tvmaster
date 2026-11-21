@@ -1,6 +1,6 @@
 {
   "name": "tvmaster",
-  "version": "1.3.2",
+  "version": "1.3.3",
   "description": "Zero-overhead Android TV Resource Monitor and Task Manager for Docker and Home Servers",
   "main": "src/server.js",
   "scripts": {

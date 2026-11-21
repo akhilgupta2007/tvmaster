@@ -887,16 +887,127 @@ async function sendRemoteText() {
   }
 }
 
-async function rebootTv() {
-  if (!isConnected) return alert('Connect to Android TV first');
-  if (confirm('Are you sure you want to reboot the Android TV?')) {
-    try {
-      await fetch('/api/remote/reboot', { method: 'POST' });
-      alert('Reboot command dispatched to TV.');
-      setConnectedState(false);
-      closeRemoteModal();
-    } catch (e) {}
+// --- Reboot TV Handlers & Reconnect Loop ---
+let rebootPollInterval = null;
+let rebootCountdownInterval = null;
+
+function openRebootModal() {
+  if (!isConnected) {
+    alert('Please connect to your Android TV first');
+    return;
   }
+  const modal = document.getElementById('modal-reboot');
+  const targetDesc = document.getElementById('reboot-target-desc');
+  const confirmView = document.getElementById('reboot-confirm-view');
+  const progressView = document.getElementById('reboot-progress-view');
+
+  if (targetDesc) {
+    targetDesc.textContent = `${devModel.textContent || 'Android TV'} (${inputIp.value}:${inputPort.value || 5555})`;
+  }
+  if (confirmView) confirmView.classList.remove('hidden');
+  if (progressView) progressView.classList.add('hidden');
+
+  closeRemoteModal();
+  modal.classList.remove('hidden');
+}
+
+function closeRebootModal() {
+  const modal = document.getElementById('modal-reboot');
+  if (modal) modal.classList.add('hidden');
+  if (rebootPollInterval) {
+    clearInterval(rebootPollInterval);
+    rebootPollInterval = null;
+  }
+  if (rebootCountdownInterval) {
+    clearInterval(rebootCountdownInterval);
+    rebootCountdownInterval = null;
+  }
+}
+
+async function executeReboot() {
+  const confirmView = document.getElementById('reboot-confirm-view');
+  const progressView = document.getElementById('reboot-progress-view');
+  const timerEl = document.getElementById('reboot-timer');
+  const statusMsg = document.getElementById('reboot-status-msg');
+
+  if (confirmView) confirmView.classList.add('hidden');
+  if (progressView) progressView.classList.remove('hidden');
+
+  try {
+    await fetch('/api/remote/reboot', { method: 'POST' });
+  } catch (e) {
+    // Abrupt socket termination is expected during reboot
+  }
+
+  setConnectedState(false);
+
+  // 25s Countdown before active polling reconnection
+  let remaining = 25;
+  if (timerEl) timerEl.textContent = `${remaining}s`;
+
+  rebootCountdownInterval = setInterval(() => {
+    remaining--;
+    if (timerEl) timerEl.textContent = `${Math.max(0, remaining)}s`;
+    if (remaining <= 0) {
+      clearInterval(rebootCountdownInterval);
+      rebootCountdownInterval = null;
+      if (statusMsg) statusMsg.textContent = 'Searching for TV on local network...';
+      startRebootReconnectLoop();
+    }
+  }, 1000);
+}
+
+function startRebootReconnectLoop() {
+  const statusMsg = document.getElementById('reboot-status-msg');
+  const timerEl = document.getElementById('reboot-timer');
+  if (timerEl) timerEl.textContent = 'Connecting...';
+
+  let attempts = 0;
+  const maxAttempts = 30; // Poll for up to 90 seconds (3s intervals)
+
+  rebootPollInterval = setInterval(async () => {
+    attempts++;
+    if (attempts > maxAttempts) {
+      clearInterval(rebootPollInterval);
+      rebootPollInterval = null;
+      if (statusMsg) {
+        statusMsg.innerHTML = '<span class="text-amber-400">TV is still booting. You can click Connect manually once it finishes.</span>';
+      }
+      return;
+    }
+
+    try {
+      const ip = inputIp.value.trim();
+      const port = parseInt(inputPort.value.trim(), 10) || 5555;
+      const res = await fetch('/api/connect', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ip, port })
+      });
+      const data = await res.json();
+      if (data.success) {
+        clearInterval(rebootPollInterval);
+        rebootPollInterval = null;
+        if (statusMsg) {
+          statusMsg.innerHTML = '<span class="text-emerald-400 font-bold">✓ Reconnected to Android TV!</span>';
+        }
+        setConnectedState(true, ip, data.deviceInfo);
+        fetchPackagesList();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'refresh_now' }));
+        }
+        setTimeout(() => {
+          closeRebootModal();
+        }, 1200);
+      }
+    } catch (e) {
+      // Still booting up
+    }
+  }, 3000);
+}
+
+function rebootTv() {
+  openRebootModal();
 }
 
 function escapeHtml(str) {

@@ -2,11 +2,11 @@
 
 <div align="center">
 
-![Version](https://img.shields.io/badge/version-1.3.2-blue.svg)
+![Version](https://img.shields.io/badge/version-1.3.3-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Android TV](https://img.shields.io/badge/Android%20TV-API%2021%2B-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)
-![Tests](https://img.shields.io/badge/tests-32%2F32%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-33%2F33%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Zero-Overhead Android TV Resource Monitor, Task Manager & Debloat Hub for Docker & Home Servers**

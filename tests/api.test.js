@@ -126,4 +126,14 @@ describe('TvMaster API & Security Validation Tests', () => {
     });
     assert.strictEqual(res.status, 400);
   });
+
+  test('POST /api/remote/reboot requires connected device', async () => {
+    const res = await fetch(`${baseUrl}/api/remote/reboot`, {
+      method: 'POST'
+    });
+    // Since mock device is disconnected in tests, returns 500 error cleanly
+    assert.strictEqual(res.status, 500);
+    const data = await res.json();
+    assert.ok(data.error);
+  });
 });

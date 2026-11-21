@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.3] - 2026-11-21
+
+### Added
+* **Dedicated TV Reboot Option with Smart Auto-Reconnection Flow**:
+  * Added prominent **Reboot TV** quick action button directly in the main dashboard action bar.
+  * Added Cyber Dark **Reboot Android TV Modal** (`#modal-reboot`) with device identity verification, impact warnings, and animated reboot progress spinner.
+  * Automated reconnect loop: initiates an intelligent 25s boot countdown, then polls ADB every 3 seconds to seamlessly re-establish connection and resume telemetry as soon as the TV comes back online.
+  * Resilient backend reboot handling in `adbService.js` that safely tolerates abrupt socket termination during TV shutdown.
+
 ## [1.3.2] - 2026-11-20
 
 ### Added

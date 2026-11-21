@@ -300,9 +300,16 @@ class AdbService {
    * Reboot TV
    */
   async reboot() {
-    await this.shell('reboot');
+    if (!this.connected) {
+      throw new Error('Not connected to any Android TV device');
+    }
+    try {
+      await this.shell('reboot', 4000);
+    } catch (e) {
+      // Abrupt socket termination is expected when Android drops ADB to restart
+    }
     this.connected = false;
-    return { success: true };
+    return { success: true, message: 'Reboot signal sent to TV' };
   }
 }
 
