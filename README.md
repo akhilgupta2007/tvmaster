@@ -41,6 +41,14 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
     * 1m / 5m / 15m load averages and kernel execution benchmarks.
   * **Storage Inspector:** Free vs Used internal storage (`/data`).
   * **Thermal Health:** TV CPU temperature and thermal throttling indicator.
+* **🖥️ Display Capabilities, Video Modes & HDR Specs:**
+  * Real-time hardware HDMI handshake detection querying panel specs **once on connection** (0% recurring load).
+  * Video modes & FPS: resolution, refresh rates (e.g. `3840x2160 @ 60.00 Hz`), and display density.
+  * Full High Dynamic Range (HDR) matrix: **Dolby Vision**, **HDR10+**, **HDR10**, and **HLG** detection with peak luminance reporting.
+  * Auto Low Latency Mode (**ALLM**) and Game Mode detection.
+* **📺 Multi-Device & Universal Streaming Support:**
+  * Support for **Amazon Fire TV / Firestick / Cube**, **NVIDIA Shield**, **Google Chromecast**, **Smart Projectors**, and **Android TVs**.
+  * 1-click device switching, automatic device classification, and custom labels.
 * **📊 Live Task Manager Table:**
   * Real-time list of running apps and system daemons sorted by CPU & RAM consumption.
   * Instant search and package filtering.
