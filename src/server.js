@@ -42,12 +42,14 @@ const {
   APP_NAME,
   APP_VERSION,
   DEFAULT_PORT,
+  REGEX_IPV4,
   printStartupBanner
 } = require('./constants');
 
 const adbService = require('./services/adbService');
 const discoveryService = require('./services/discoveryService');
 const telemetryService = require('./services/telemetryService');
+const deviceService = require('./services/deviceService');
 
 const processController = require('./controllers/processController');
 const tuningController = require('./controllers/tuningController');
@@ -82,7 +84,8 @@ app.get('/api/status', (req, res) => {
     deviceIp: adbService.deviceIp,
     devicePort: adbService.devicePort,
     deviceInfo: adbService.deviceInfo,
-    savedIp: config.lastIp || process.env.TV_IP || ''
+    savedIp: config.lastIp || process.env.TV_IP || '',
+    activeDevice: adbService.connected ? deviceService.getDeviceByIp(adbService.deviceIp) : null
   });
 });
 
@@ -92,9 +95,22 @@ app.post('/api/connect', async (req, res) => {
     const { ip, port } = req.body;
     const result = await adbService.connect(ip, port);
     saveConfig({ lastIp: ip, lastPort: port || 5555 });
+    
+    // Automatically save or update device profile in cards
+    const devInfo = adbService.deviceInfo || {};
+    deviceService.addOrUpdateDevice({
+      ip,
+      port: port || 5555,
+      model: devInfo.model,
+      manufacturer: devInfo.manufacturer,
+      androidVersion: devInfo.androidVersion,
+      apiLevel: devInfo.apiLevel,
+      screenResolution: devInfo.screenResolution
+    });
+
     // Request immediate telemetry update
     await telemetryService.collectTelemetry();
-    res.json(result);
+    res.json({ ...result, devices: deviceService.getDevices(ip) });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -110,11 +126,147 @@ app.post('/api/disconnect', async (req, res) => {
   }
 });
 
-// Network Auto-Discovery
+// --- TV Device Profiles & 1-Click Card Switching ---
+
+// Get all saved TV profiles with active flag
+app.get('/api/devices', (req, res) => {
+  const activeIp = adbService.connected ? adbService.deviceIp : null;
+  res.json({
+    activeIp,
+    devices: deviceService.getDevices(activeIp)
+  });
+});
+
+// Switch active TV profile in 1 click
+app.post('/api/devices/switch', async (req, res) => {
+  try {
+    const { ip, port, name } = req.body;
+    if (!ip || !REGEX_IPV4.test(ip)) {
+      return res.status(400).json({ error: 'Valid TV IP address required' });
+    }
+    const targetPort = port ? parseInt(port, 10) : 5555;
+
+    // Disconnect currently active device if any
+    if (adbService.connected) {
+      try {
+        await adbService.disconnect();
+      } catch (e) {}
+    }
+
+    // Connect to target device
+    const connectRes = await adbService.connect(ip, targetPort);
+    if (connectRes.success) {
+      const devInfo = adbService.deviceInfo || {};
+      const saved = deviceService.addOrUpdateDevice({
+        ip,
+        port: targetPort,
+        name: name || (devInfo.model ? `${devInfo.manufacturer || ''} ${devInfo.model}`.trim() : `Android TV (${ip})`),
+        model: devInfo.model,
+        manufacturer: devInfo.manufacturer,
+        androidVersion: devInfo.androidVersion,
+        apiLevel: devInfo.apiLevel,
+        screenResolution: devInfo.screenResolution
+      });
+      saveConfig({ lastIp: ip, lastPort: targetPort });
+      await telemetryService.collectTelemetry();
+      return res.json({
+        success: true,
+        message: `Switched to ${saved.name}`,
+        activeDevice: saved,
+        devices: deviceService.getDevices(ip)
+      });
+    } else {
+      return res.status(400).json({ error: connectRes.error || 'Connection failed' });
+    }
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Add a TV card profile
+app.post('/api/devices', (req, res) => {
+  try {
+    const { ip, port, name } = req.body;
+    if (!ip || !REGEX_IPV4.test(ip)) {
+      return res.status(400).json({ error: 'Valid TV IP address required' });
+    }
+    const saved = deviceService.addOrUpdateDevice({
+      ip,
+      port: port ? parseInt(port, 10) : 5555,
+      name
+    });
+    return res.json({
+      success: true,
+      device: saved,
+      devices: deviceService.getDevices(adbService.connected ? adbService.deviceIp : null)
+    });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Rename TV card profile
+app.put('/api/devices/rename', (req, res) => {
+  try {
+    const { ip, name } = req.body;
+    if (!ip || !name) {
+      return res.status(400).json({ error: 'IP and Name are required' });
+    }
+    const ok = deviceService.renameDevice(ip, name);
+    if (ok) {
+      return res.json({
+        success: true,
+        message: 'TV renamed',
+        devices: deviceService.getDevices(adbService.connected ? adbService.deviceIp : null)
+      });
+    }
+    return res.status(404).json({ error: 'TV device not found' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Delete TV card profile
+app.delete('/api/devices/:ip', (req, res) => {
+  try {
+    const { ip } = req.params;
+    const ok = deviceService.removeDevice(ip);
+    if (ok) {
+      return res.json({
+        success: true,
+        message: 'TV removed from cards',
+        devices: deviceService.getDevices(adbService.connected ? adbService.deviceIp : null)
+      });
+    }
+    return res.status(404).json({ error: 'TV device not found' });
+  } catch (err) {
+    return res.status(500).json({ error: err.message });
+  }
+});
+
+// Network Auto-Discovery (Enhanced for Docker bridges & multi-subnets)
 app.get('/api/discover', async (req, res) => {
   try {
-    const devices = await discoveryService.scanNetwork();
-    res.json({ devices });
+    const customSubnet = req.query.subnet;
+    const clientIp = req.headers['x-forwarded-for'] || req.socket.remoteAddress;
+    const hostHeader = req.headers.host;
+    const savedSubnets = deviceService.getDeviceSubnets();
+    const candidateIps = [clientIp, hostHeader, ...savedSubnets].filter(Boolean);
+
+    const devices = await discoveryService.scanNetwork(customSubnet, candidateIps);
+    const enriched = devices.map((d) => {
+      const known = deviceService.getDeviceByIp(d.ip);
+      return {
+        ...d,
+        name: known ? known.name : d.name,
+        model: known ? known.model : 'Android TV',
+        isKnown: Boolean(known)
+      };
+    });
+    res.json({
+      detectedSubnets: discoveryService.resolveSubnets(candidateIps),
+      devices: enriched
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
@@ -172,8 +324,9 @@ if (require.main === module) {
     printStartupBanner();
 
     const config = getSavedConfig();
-    const targetIp = process.env.TV_IP || config.lastIp;
-    const targetPort = config.lastPort || 5555;
+    const savedDevs = deviceService.getDevices();
+    const targetIp = process.env.TV_IP || config.lastIp || (savedDevs.length > 0 ? savedDevs[0].ip : null);
+    const targetPort = config.lastPort || (savedDevs.length > 0 ? savedDevs[0].port : 5555);
 
     // Auto-connect to configured TV_IP or previously saved TV IP
     if (targetIp) {
@@ -181,6 +334,16 @@ if (require.main === module) {
       try {
         await adbService.connect(targetIp, targetPort);
         console.log(`[TvMaster] Connected successfully to ${targetIp}:${targetPort}`);
+        const devInfo = adbService.deviceInfo || {};
+        deviceService.addOrUpdateDevice({
+          ip: targetIp,
+          port: targetPort,
+          model: devInfo.model,
+          manufacturer: devInfo.manufacturer,
+          androidVersion: devInfo.androidVersion,
+          apiLevel: devInfo.apiLevel,
+          screenResolution: devInfo.screenResolution
+        });
         await telemetryService.collectTelemetry();
       } catch (err) {
         console.warn(`[TvMaster] Auto-connect attempt failed: ${err.message}`);

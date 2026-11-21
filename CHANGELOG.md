@@ -7,6 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.4.0] - 2026-11-21
+
+### Added
+* **1-Click TV Device Cards & Seamless Multi-TV Switching**:
+  * Added dynamic **"My Android TVs"** card deck directly on the dashboard.
+  * Saved TVs displayed as rich interactive cards showing TV name, model, IP/port, resolution, and live active state.
+  * **Instant Switching**: Click any standby TV card or the "Switch TV" button to seamlessly switch ADB connection and live telemetry stream without retyping IP addresses.
+  * Added **Add TV Modal** (`#modal-add-tv`) to easily register multiple Android TVs by IP and custom nickname.
+  * Added **Rename TV** capability and delete actions directly from TV cards.
+  * Persistent storage engine (`data/devices.json`) keeping device roster synchronized across container reboots.
+* **Network Auto-Discovery Fix for Docker & Multi-Subnet Environments**:
+  * Fixed auto-discovery failing in bridged Docker containers where `os.networkInterfaces()` only saw internal virtual `172.18.x` networks.
+  * Implemented multi-subnet resolver extracting physical LAN subnets from Host headers, client IPs, saved device lists, and `SCAN_SUBNET` env vars.
+  * Added **Target Subnet Selector** in Auto-Discovery modal with one-click presets (`10.0.0.*`, `192.168.1.*`, `192.168.0.*`) and custom CIDR input.
+  * Refactored socket prober with hard timeout timer preventing connection hang on unresponsive addresses.
+  * 1-Click "Switch & Connect" button directly on discovered device items.
+
 ## [1.3.3] - 2026-11-21
 
 ### Added

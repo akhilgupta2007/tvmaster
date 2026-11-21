@@ -65,6 +65,7 @@ window.addEventListener('DOMContentLoaded', () => {
     inputIp.value = lastIp;
   }
   setupDragAndDrop();
+  fetchDevicesList();
   checkServerStatus();
   initWebSocket();
 });
@@ -688,6 +689,8 @@ function setConnectedState(connected, ip = '', info = null) {
     devOs.textContent = '-';
     devRes.textContent = '-';
   }
+  // Refresh TV cards active state
+  renderTvCards(savedTvDevices, connected ? (ip || (inputIp ? inputIp.value.trim() : '')) : null);
 }
 
 // --- Speed Up / Tuning Actions ---
@@ -737,7 +740,218 @@ function requestManualSnapshot() {
   }
 }
 
-// --- Auto-Discovery Modal ---
+// --- TV Device Card Switching & Management Engine ---
+let savedTvDevices = [];
+
+async function fetchDevicesList() {
+  try {
+    const res = await fetch('/api/devices');
+    const data = await res.json();
+    savedTvDevices = data.devices || [];
+    renderTvCards(savedTvDevices, data.activeIp);
+  } catch (e) {
+    console.warn('Failed to load saved TV profiles:', e);
+  }
+}
+
+function renderTvCards(devices, activeIp) {
+  const container = document.getElementById('tv-cards-container');
+  const countBadge = document.getElementById('tv-cards-count');
+  if (!container) return;
+
+  if (countBadge) {
+    countBadge.textContent = `${devices.length} saved`;
+  }
+
+  let html = '';
+
+  for (const dev of devices) {
+    const isActive = Boolean(activeIp && dev.ip === activeIp && isConnected);
+
+    if (isActive) {
+      // Active TV Card (High visual emphasis)
+      html += `
+        <div class="bg-gradient-to-br from-slate-900 to-slate-950 border-2 border-blue-500 rounded-2xl p-4 shadow-xl glow-blue relative flex flex-col justify-between transition group">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-blue-600/20 border border-blue-500/40 flex items-center justify-center text-blue-400">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <h4 class="font-bold text-white text-sm leading-tight">${escapeHtml(dev.name || 'Android TV')}</h4>
+                  <button onclick="promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename TV">✏️</button>
+                </div>
+                <p class="text-[11px] font-mono text-blue-400">${dev.ip}:${dev.port || 5555}</p>
+              </div>
+            </div>
+            <span class="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 flex items-center gap-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Active
+            </span>
+          </div>
+
+          <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <div class="flex items-center gap-1.5">
+              <span class="bg-slate-800 px-1.5 py-0.5 rounded text-slate-300">${dev.model || 'Connected'}</span>
+              <span>${dev.screenResolution || ''}</span>
+            </div>
+            <span class="text-xs font-semibold text-blue-400 flex items-center gap-1">
+              ✓ Streaming
+            </span>
+          </div>
+        </div>
+      `;
+    } else {
+      // Standby / Other TV Card (1-Click Switchable)
+      html += `
+        <div onclick="switchTv('${dev.ip}', ${dev.port || 5555}, '${escapeHtml(dev.name || '')}')" class="bg-slate-900/80 hover:bg-slate-800/90 border border-slate-800 hover:border-blue-500/50 rounded-2xl p-4 shadow cursor-pointer relative flex flex-col justify-between transition group hover:-translate-y-0.5">
+          <div class="flex items-start justify-between gap-2">
+            <div class="flex items-center gap-2.5">
+              <div class="w-9 h-9 rounded-xl bg-slate-800 border border-slate-700 flex items-center justify-center text-slate-400 group-hover:text-blue-400 transition">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              </div>
+              <div>
+                <div class="flex items-center gap-1.5">
+                  <h4 class="font-bold text-slate-200 group-hover:text-white text-sm leading-tight">${escapeHtml(dev.name || 'Android TV')}</h4>
+                  <button onclick="event.stopPropagation(); promptRenameTv('${dev.ip}', '${escapeHtml(dev.name || '')}')" class="opacity-0 group-hover:opacity-100 text-slate-400 hover:text-white transition text-xs" title="Rename TV">✏️</button>
+                </div>
+                <p class="text-[11px] font-mono text-slate-400">${dev.ip}:${dev.port || 5555}</p>
+              </div>
+            </div>
+            <button onclick="event.stopPropagation(); deleteTvCard('${dev.ip}')" class="opacity-0 group-hover:opacity-100 text-slate-500 hover:text-red-400 text-xs transition px-1" title="Remove TV Card">✕</button>
+          </div>
+
+          <div class="mt-3 pt-2.5 border-t border-slate-800/80 flex items-center justify-between text-[11px] text-slate-400">
+            <span class="bg-slate-800/80 px-1.5 py-0.5 rounded text-slate-400">${dev.model || 'Saved TV'}</span>
+            <button onclick="event.stopPropagation(); switchTv('${dev.ip}', ${dev.port || 5555}, '${escapeHtml(dev.name || '')}')" class="px-2.5 py-1 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-lg font-semibold text-xs transition border border-slate-700 hover:border-transparent flex items-center gap-1">
+              ⚡ Switch TV
+            </button>
+          </div>
+        </div>
+      `;
+    }
+  }
+
+  // Add TV Card Button at the end
+  html += `
+    <div onclick="openAddTvModal()" class="border-2 border-dashed border-slate-800 hover:border-blue-500/50 bg-slate-950/40 hover:bg-blue-600/5 rounded-2xl p-4 flex flex-col items-center justify-center text-center cursor-pointer transition min-h-[110px] group">
+      <div class="w-8 h-8 rounded-full bg-slate-800 group-hover:bg-blue-600/20 text-slate-400 group-hover:text-blue-400 flex items-center justify-center mb-1.5 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      </div>
+      <span class="text-xs font-bold text-slate-300 group-hover:text-white">Add Another TV</span>
+      <span class="text-[10px] text-slate-500">Save by IP or scan network</span>
+    </div>
+  `;
+
+  container.innerHTML = html;
+}
+
+// 1-Click Switch TV Handler
+async function switchTv(ip, port = 5555, name = '') {
+  inputIp.value = ip;
+  inputPort.value = port;
+  btnConnect.disabled = true;
+  btnConnect.textContent = 'Switching...';
+
+  try {
+    const res = await fetch('/api/devices/switch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip, port, name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      localStorage.setItem('tvmaster_last_ip', ip);
+      setConnectedState(true, ip, data.deviceInfo || data.activeDevice);
+      fetchPackagesList();
+      fetchDevicesList();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'refresh_now' }));
+      }
+    } else {
+      alert(`Failed to switch TV: ${data.error || 'Could not connect'}`);
+      setConnectedState(false);
+      fetchDevicesList();
+    }
+  } catch (err) {
+    alert(`Network Error: ${err.message}`);
+    setConnectedState(false);
+    fetchDevicesList();
+  } finally {
+    btnConnect.disabled = false;
+  }
+}
+
+// Add TV Modal Handlers
+function openAddTvModal() {
+  document.getElementById('modal-add-tv').classList.remove('hidden');
+}
+
+function closeAddTvModal() {
+  document.getElementById('modal-add-tv').classList.add('hidden');
+}
+
+async function saveAndSwitchNewTv() {
+  const ip = document.getElementById('add-tv-ip').value.trim();
+  const port = parseInt(document.getElementById('add-tv-port').value.trim(), 10) || 5555;
+  const name = document.getElementById('add-tv-name').value.trim();
+
+  if (!ip) return alert('Please enter a valid IP address');
+
+  closeAddTvModal();
+  await switchTv(ip, port, name);
+}
+
+// Rename TV Handlers
+function promptRenameTv(ip, currentName) {
+  document.getElementById('rename-tv-ip').value = ip;
+  document.getElementById('rename-tv-input').value = currentName || '';
+  document.getElementById('modal-rename-tv').classList.remove('hidden');
+}
+
+function closeRenameTvModal() {
+  document.getElementById('modal-rename-tv').classList.add('hidden');
+}
+
+async function submitRenameTv() {
+  const ip = document.getElementById('rename-tv-ip').value.trim();
+  const name = document.getElementById('rename-tv-input').value.trim();
+  if (!ip || !name) return alert('Name cannot be empty');
+
+  try {
+    const res = await fetch('/api/devices/rename', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip, name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeRenameTvModal();
+      fetchDevicesList();
+    } else {
+      alert(data.error || 'Failed to rename');
+    }
+  } catch (e) {
+    alert(e.message);
+  }
+}
+
+// Delete TV Card Handler
+async function deleteTvCard(ip) {
+  if (confirm(`Remove TV (${ip}) from your saved cards?`)) {
+    try {
+      const res = await fetch(`/api/devices/${encodeURIComponent(ip)}`, { method: 'DELETE' });
+      const data = await res.json();
+      if (data.success) {
+        fetchDevicesList();
+      }
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+}
+
+// --- Enhanced Auto-Discovery with Subnet Scanning ---
 function openDiscoverModal() {
   document.getElementById('modal-discover').classList.remove('hidden');
 }
@@ -748,39 +962,55 @@ function closeDiscoverModal() {
 
 async function startDiscoveryScan() {
   const listEl = document.getElementById('discover-list');
-  listEl.innerHTML = '<div class="text-center py-6 text-blue-400 animate-pulse text-xs">Scanning subnet on port 5555...</div>';
+  const subnetInput = document.getElementById('discover-subnet-input');
+  let subnet = subnetInput ? subnetInput.value.trim() : '';
+  if (subnet === 'all') subnet = '';
+
+  const subnetText = subnet ? `subnet ${subnet}.0/24` : 'local network';
+  listEl.innerHTML = `<div class="text-center py-6 text-blue-400 animate-pulse text-xs">Scanning ${subnetText} on port 5555...</div>`;
 
   try {
-    const res = await fetch('/api/discover');
+    const url = subnet ? `/api/discover?subnet=${encodeURIComponent(subnet)}` : '/api/discover';
+    const res = await fetch(url);
     const data = await res.json();
+
     if (data.devices && data.devices.length > 0) {
       listEl.innerHTML = data.devices
         .map(
           (dev) => `
-        <div class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl">
+        <div class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl hover:border-slate-700 transition">
           <div>
-            <p class="font-bold text-white text-xs">${dev.name}</p>
+            <div class="flex items-center gap-1.5">
+              <p class="font-bold text-white text-xs">${escapeHtml(dev.name)}</p>
+              ${dev.isKnown ? '<span class="text-[9px] bg-blue-500/20 text-blue-400 px-1.5 py-0.2 rounded font-semibold">Saved</span>' : ''}
+            </div>
             <p class="text-[11px] text-slate-400 font-mono">${dev.ip}:${dev.port}</p>
           </div>
-          <button onclick="pickDiscoveredDevice('${dev.ip}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition">
-            Connect
-          </button>
+          <div class="flex items-center gap-1.5">
+            <button onclick="pickDiscoveredDevice('${dev.ip}', ${dev.port}, '${escapeHtml(dev.name)}')" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-lg text-xs font-bold transition shadow-sm glow-blue">
+              Switch & Connect
+            </button>
+          </div>
         </div>
       `
         )
         .join('');
     } else {
-      listEl.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">No devices found with port 5555 open.<br>Ensure "USB/Network Debugging" is enabled on your TV.</div>';
+      listEl.innerHTML = `
+        <div class="text-center py-6 text-slate-400 text-xs space-y-1">
+          <p class="text-white font-semibold">No active Android TV devices detected on ${subnetText}.</p>
+          <p class="text-[11px] text-slate-500">1. Ensure your TV is powered on and connected to Wi-Fi/Ethernet.<br>2. Verify "Network Debugging" (Port 5555) is enabled in Developer Options.<br>3. If your TV is on another subnet (e.g. 192.168.1.*), change the target subnet above.</p>
+        </div>
+      `;
     }
   } catch (err) {
     listEl.innerHTML = `<div class="text-center py-4 text-red-400 text-xs">Scan failed: ${err.message}</div>`;
   }
 }
 
-function pickDiscoveredDevice(ip) {
-  inputIp.value = ip;
+function pickDiscoveredDevice(ip, port = 5555, name = '') {
   closeDiscoverModal();
-  toggleConnect();
+  switchTv(ip, port, name);
 }
 
 // --- Bloatware Hunter Modal ---
