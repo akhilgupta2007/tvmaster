@@ -53,6 +53,9 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
   * Full D-Pad controls (Up, Down, Left, Right, OK, Back, Home, Menu, Volume).
   * Type text, URLs, and complex passwords on your computer keyboard and send them directly to any active text input on your TV (`input text`).
   * Clean soft reboot control.
+* **🤖 Model Context Protocol (MCP) Server:**
+  * Native MCP server (`src/mcp/server.js`) compliant with the official `@modelcontextprotocol/sdk`.
+  * Allows AI assistants (Antigravity, Claude, Cursor, ChatGPT) to inspect TV telemetry, kill runaway tasks, flush RAM, adjust animations, freeze bloatware, and send remote keystrokes.
 
 ---
 
@@ -138,6 +141,46 @@ TvMaster is built with robust security controls to protect your home network:
 * **Input Sanitization:** Remote text injection automatically escapes shell metacharacters (`\\"'`$#&*|;<>~(){}` etc.).
 * **Zero Cloud Dependency:** Runs 100% locally on your LAN with zero telemetry sent to external servers.
 * **Test Suite:** Verified with 21 automated tests covering adversarial monkey fuzzing, 50KB payload boundaries, and extreme numeric edges.
+
+---
+
+## 🤖 Model Context Protocol (MCP) Integration
+
+TvMaster exposes a native MCP server for AI agents.
+
+### Adding TvMaster to Antigravity, Claude Desktop, or Cursor
+
+Add this entry to your MCP configuration file (e.g. `claude_desktop_config.json` or Antigravity MCP settings):
+
+```json
+{
+  "mcpServers": {
+    "tvmaster": {
+      "command": "node",
+      "args": [
+        "c:/Users/akhil/OneDrive/Documents/antigravity/tvmaster/src/mcp/server.js"
+      ]
+    }
+  }
+}
+```
+
+### Available MCP Tools
+
+| Tool | Description |
+| :--- | :--- |
+| `tv_connect` | Connects to TV IP and port over network ADB |
+| `tv_get_status` | Returns device connection state, model, OS, and resolution |
+| `tv_get_telemetry` | Real-time RAM, CPU, Load average, and Storage (< 1ms read) |
+| `tv_list_processes` | Lists running processes with CPU % and memory in MB |
+| `tv_kill_process` | Force stops a package (`am force-stop`) |
+| `tv_flush_ram` | Drops cached background apps (`am kill-all`) |
+| `tv_tune_speed` | Sets animation scales (`0.5`, `0`, `1.0`) |
+| `tv_debloat_package` | Freezes or unfreezes manufacturer bloatware (`pm disable-user`) |
+| `tv_send_remote_key` | Sends D-pad, Home, Back, Volume, Menu keys |
+| `tv_send_text` | Types text directly into any active input on screen |
+| `tv_discover_devices`| Sweeps local subnet for Android TVs |
+| `tv_reboot` | Soft reboots the Android TV |
 
 ---
 

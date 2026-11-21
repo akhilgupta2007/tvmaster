@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 * **Initial Release of TvMaster (`v1.0.0`)**: A zero-overhead Android TV resource monitor and process manager for Docker.
+* **Model Context Protocol (MCP) Server**:
+  * Native MCP server compliant with official `@modelcontextprotocol/sdk`.
+  * 12 agentic tools enabling AI assistants to monitor TV telemetry, kill runaway tasks, flush RAM, adjust animations, freeze bloatware, and send remote keystrokes.
+* **Remote Docker Deployment Automation**:
+  * Added `deploy-to-server.bat` for one-command packaging and deploying to home server.
 * **Low-Overhead Telemetry Engine**:
   * Direct kernel pseudofile parsing (`/proc/stat`, `/proc/meminfo`, `/proc/loadavg`, `df -k /data`).
   * Adaptive client-driven polling via WebSockets (automatically shuts down queries when browser is closed, guaranteeing zero TV impact).
