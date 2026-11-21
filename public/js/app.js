@@ -77,8 +77,17 @@ async function checkServerStatus() {
     if (data.connected) {
       setConnectedState(true, data.deviceIp, data.deviceInfo);
       fetchPackagesList();
+      if (ws && ws.readyState === WebSocket.OPEN) {
+        ws.send(JSON.stringify({ type: 'refresh_now' }));
+      }
     } else {
       setConnectedState(false);
+      const targetIp = data.savedIp || lastIp || (inputIp ? inputIp.value.trim() : '');
+      if (targetIp) {
+        inputIp.value = targetIp;
+        // Seamlessly auto-connect without intrusive popups
+        toggleConnect(true);
+      }
     }
   } catch (err) {
     setConnectedState(false);
@@ -108,6 +117,8 @@ function initWebSocket() {
 
   ws.onopen = () => {
     console.log('[TvMaster WS] Connected to backend telemetry stream');
+    // Request instant telemetry snapshot on connection
+    ws.send(JSON.stringify({ type: 'refresh_now' }));
   };
 
   ws.onmessage = (event) => {
@@ -604,7 +615,7 @@ async function uploadAndInstallApk() {
 }
 
 // --- Connection Toggle ---
-async function toggleConnect() {
+async function toggleConnect(isAuto = false) {
   if (isConnected) {
     try {
       await fetch('/api/disconnect', { method: 'POST' });
@@ -614,7 +625,7 @@ async function toggleConnect() {
     const ip = inputIp.value.trim();
     const port = parseInt(inputPort.value.trim(), 10) || 5555;
     if (!ip) {
-      alert('Please enter your Android TV IP address');
+      if (!isAuto) alert('Please enter your Android TV IP address');
       return;
     }
 
@@ -632,12 +643,19 @@ async function toggleConnect() {
         localStorage.setItem('tvmaster_last_ip', ip);
         setConnectedState(true, ip, data.deviceInfo);
         fetchPackagesList();
+        if (ws && ws.readyState === WebSocket.OPEN) {
+          ws.send(JSON.stringify({ type: 'refresh_now' }));
+        }
       } else {
-        alert(`Connection Failed: ${data.error || 'Check that Network Debugging is enabled on TV'}`);
+        if (!isAuto) {
+          alert(`Connection Failed: ${data.error || 'Check that Network Debugging is enabled on TV'}`);
+        }
         setConnectedState(false);
       }
     } catch (err) {
-      alert(`Network Error: ${err.message}`);
+      if (!isAuto) {
+        alert(`Network Error: ${err.message}`);
+      }
       setConnectedState(false);
     } finally {
       btnConnect.disabled = false;

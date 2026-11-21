@@ -181,6 +181,14 @@ class AppLabelService {
    */
   queryGooglePlayStore(packageId) {
     return new Promise((resolve) => {
+      let resolved = false;
+      const safeResolve = (val) => {
+        if (!resolved) {
+          resolved = true;
+          resolve(val);
+        }
+      };
+
       const url = `https://play.google.com/store/apps/details?id=${encodeURIComponent(packageId)}&hl=en`;
       const req = https.get(
         url,
@@ -193,15 +201,20 @@ class AppLabelService {
         (res) => {
           if (res.statusCode !== 200) {
             res.resume();
-            return resolve(null);
+            return safeResolve(null);
           }
 
           let body = '';
           res.setEncoding('utf8');
           res.on('data', (chunk) => {
             body += chunk;
-            // Stop early if title found
-            if (body.includes('</title>')) {
+            const m = body.match(/<title id=["']main-title["']>([^<]+)<\/title>/i);
+            if (m && m[1]) {
+              const cleaned = m[1]
+                .replace(/\s*-\s*Apps on Google Play/i, '')
+                .replace(/\s*-\s*Android Apps on Google Play/i, '')
+                .trim();
+              safeResolve(cleaned);
               req.destroy();
             }
           });
@@ -213,17 +226,17 @@ class AppLabelService {
                 .replace(/\s*-\s*Apps on Google Play/i, '')
                 .replace(/\s*-\s*Android Apps on Google Play/i, '')
                 .trim();
-              return resolve(cleaned);
+              return safeResolve(cleaned);
             }
-            resolve(null);
+            safeResolve(null);
           });
         }
       );
 
-      req.on('error', () => resolve(null));
+      req.on('error', () => safeResolve(null));
       req.on('timeout', () => {
         req.destroy();
-        resolve(null);
+        safeResolve(null);
       });
     });
   }

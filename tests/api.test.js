@@ -5,6 +5,7 @@
 const { test, describe, before, after } = require('node:test');
 const assert = require('node:assert');
 const { app, server } = require('../src/server');
+const { APP_VERSION } = require('../src/constants');
 
 const TEST_PORT = 3199;
 
@@ -19,12 +20,12 @@ describe('TvMaster API & Security Validation Tests', () => {
 
   const baseUrl = `http://localhost:${TEST_PORT}`;
 
-  test('GET /api/health returns 200 with TvMaster v1.3.1 metadata', async () => {
+  test('GET /api/health returns 200 with TvMaster metadata', async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     assert.strictEqual(res.status, 200);
     const data = await res.json();
     assert.strictEqual(data.app, 'TvMaster');
-    assert.strictEqual(data.version, '1.3.1');
+    assert.strictEqual(data.version, APP_VERSION);
     assert.strictEqual(data.status, 'ok');
   });
 

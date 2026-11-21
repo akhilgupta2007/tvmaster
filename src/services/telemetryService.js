@@ -201,8 +201,17 @@ class TelemetryService {
       const pid = parseInt(parts[0], 10);
       if (isNaN(pid)) continue;
 
-      // Detect package name / command (last column)
-      const name = parts[parts.length - 1];
+      // Detect package name / command
+      let name = parts[parts.length - 1];
+      // If last token is purely numeric or invalid, look backwards for command/package
+      if (/^\d+$/.test(name) && parts.length > 2) {
+        for (let i = parts.length - 1; i >= 1; i--) {
+          if (!/^\d+(\.\d+)?%?$/.test(parts[i]) && parts[i] !== 'S' && parts[i] !== 'R' && parts[i] !== 'D') {
+            name = parts[i];
+            break;
+          }
+        }
+      }
 
       // Extract CPU and memory
       let cpu = 0;

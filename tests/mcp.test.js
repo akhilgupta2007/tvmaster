@@ -5,13 +5,14 @@
 const { test, describe } = require('node:test');
 const assert = require('node:assert');
 const { createMcpServer } = require('../src/mcp/server');
+const { APP_VERSION } = require('../src/constants');
 
 describe('TvMaster MCP Server Tool Registry Tests', () => {
   const mcp = createMcpServer();
 
-  test('MCP Server initializes with TvMaster name and version 1.3.1', () => {
+  test('MCP Server initializes with TvMaster name and version', () => {
     assert.strictEqual(mcp.server._serverInfo.name, 'TvMaster');
-    assert.strictEqual(mcp.server._serverInfo.version, '1.3.1');
+    assert.strictEqual(mcp.server._serverInfo.version, APP_VERSION);
   });
 
   test('MCP Server registers all required Android TV management tools', () => {

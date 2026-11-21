@@ -7,9 +7,30 @@
 const express = require('express');
 const http = require('http');
 const path = require('path');
+const fs = require('fs');
 const cors = require('cors');
 const multer = require('multer');
 const { WebSocketServer } = require('ws');
+
+const CONFIG_FILE = path.join(__dirname, '../data/config.json');
+
+function getSavedConfig() {
+  try {
+    if (fs.existsSync(CONFIG_FILE)) {
+      return JSON.parse(fs.readFileSync(CONFIG_FILE, 'utf8'));
+    }
+  } catch (e) {}
+  return {};
+}
+
+function saveConfig(data) {
+  try {
+    const dir = path.dirname(CONFIG_FILE);
+    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+    const current = getSavedConfig();
+    fs.writeFileSync(CONFIG_FILE, JSON.stringify({ ...current, ...data }, null, 2), 'utf8');
+  } catch (e) {}
+}
 
 // Configure temporary upload storage for APK installation
 const upload = multer({
@@ -55,11 +76,13 @@ app.get('/api/health', (req, res) => {
 
 // Device Connection Status
 app.get('/api/status', (req, res) => {
+  const config = getSavedConfig();
   res.json({
     connected: adbService.connected,
     deviceIp: adbService.deviceIp,
     devicePort: adbService.devicePort,
-    deviceInfo: adbService.deviceInfo
+    deviceInfo: adbService.deviceInfo,
+    savedIp: config.lastIp || process.env.TV_IP || ''
   });
 });
 
@@ -68,6 +91,7 @@ app.post('/api/connect', async (req, res) => {
   try {
     const { ip, port } = req.body;
     const result = await adbService.connect(ip, port);
+    saveConfig({ lastIp: ip, lastPort: port || 5555 });
     // Request immediate telemetry update
     await telemetryService.collectTelemetry();
     res.json(result);
@@ -147,12 +171,17 @@ if (require.main === module) {
   server.listen(DEFAULT_PORT, async () => {
     printStartupBanner();
 
-    // Check optional TV_IP environment variable for auto-connect
-    if (process.env.TV_IP) {
-      console.log(`[TvMaster] Auto-connecting to configured TV IP: ${process.env.TV_IP}...`);
+    const config = getSavedConfig();
+    const targetIp = process.env.TV_IP || config.lastIp;
+    const targetPort = config.lastPort || 5555;
+
+    // Auto-connect to configured TV_IP or previously saved TV IP
+    if (targetIp) {
+      console.log(`[TvMaster] Auto-connecting to saved TV IP: ${targetIp}:${targetPort}...`);
       try {
-        await adbService.connect(process.env.TV_IP);
-        console.log(`[TvMaster] Connected successfully to ${process.env.TV_IP}`);
+        await adbService.connect(targetIp, targetPort);
+        console.log(`[TvMaster] Connected successfully to ${targetIp}:${targetPort}`);
+        await telemetryService.collectTelemetry();
       } catch (err) {
         console.warn(`[TvMaster] Auto-connect attempt failed: ${err.message}`);
       }

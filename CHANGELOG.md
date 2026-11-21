@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.3.2] - 2026-11-20
+
+### Added
+* **Seamless Auto-Reconnect & Persistent Server Configuration**:
+  * Added `data/config.json` persistent configuration engine across container restarts.
+  * Backend now automatically attempts reconnect on container launch to the last saved TV IP or `TV_IP` environment variable.
+  * Frontend automatically triggers auto-connect on page load if the TV was previously connected or an IP is cached, eliminating manual reconnection clicks after reboot.
+  * Instant telemetry snapshot request (`refresh_now`) emitted on WebSocket open for zero-wait UI population.
+* **Process Name Alignment Fix**:
+  * Enhanced `parseTop` in `telemetryService.js` to prevent numeric column drift when parsing kernel/system tasks.
+
 ## [1.3.1] - 2026-11-20
 
 ### Added
