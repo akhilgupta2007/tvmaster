@@ -1,12 +1,20 @@
 /**
  * TvMaster v1.0.0 - Client Application
- * Real-time WebSocket Telemetry & Task Manager Controller
+ * Advanced Process Slicing, Sorting, APK Sideload & TV Management
  */
 
 let ws = null;
 let isConnected = false;
 let currentProcesses = [];
+let userInstalledPackages = new Set();
+let disabledPackages = new Set();
 let lastIp = localStorage.getItem('tvmaster_last_ip') || '';
+
+// Slicing & Sorting State
+let sortColumn = 'memMb';
+let sortDirection = 'desc'; // 'asc' or 'desc'
+let activeFilter = 'all'; // 'all', 'apps', 'system', 'hogs'
+let selectedApkFile = null;
 
 // DOM Elements
 const connPill = document.getElementById('conn-pill');
@@ -44,13 +52,16 @@ const storageTotalVal = document.getElementById('storage-total-val');
 
 const processTableBody = document.getElementById('process-table-body');
 const processSearch = document.getElementById('process-search');
-const processFilter = document.getElementById('process-filter');
+const processCountBadge = document.getElementById('process-count-badge');
+const selectSortField = document.getElementById('select-sort-field');
+const selectPageLimit = document.getElementById('select-page-limit');
 
 // Initialize on page load
 window.addEventListener('DOMContentLoaded', () => {
   if (lastIp) {
     inputIp.value = lastIp;
   }
+  setupDragAndDrop();
   checkServerStatus();
   initWebSocket();
 });
@@ -62,12 +73,27 @@ async function checkServerStatus() {
     const data = await res.json();
     if (data.connected) {
       setConnectedState(true, data.deviceIp, data.deviceInfo);
+      fetchPackagesList();
     } else {
       setConnectedState(false);
     }
   } catch (err) {
     setConnectedState(false);
   }
+}
+
+// Fetch installed packages from TV to distinguish 3rd-party apps
+async function fetchPackagesList() {
+  try {
+    const res = await fetch('/api/packages');
+    const data = await res.json();
+    if (data.userPackages) {
+      userInstalledPackages = new Set(data.userPackages);
+    }
+    if (data.disabledPackages) {
+      disabledPackages = new Set(data.disabledPackages);
+    }
+  } catch (e) {}
 }
 
 // --- WebSocket Telemetry Hub ---
@@ -91,7 +117,6 @@ function initWebSocket() {
   };
 
   ws.onclose = () => {
-    console.warn('[TvMaster WS] Disconnected. Reconnecting in 3s...');
     setTimeout(initWebSocket, 3000);
   };
 }
@@ -172,76 +197,189 @@ function updateTelemetryUI(data) {
 
   // Processes
   if (data.processes) {
-    currentProcesses = data.processes;
-    filterProcesses();
+    currentProcesses = data.processes.map((proc) => {
+      const isUserApp = userInstalledPackages.has(proc.package) || (proc.isPackage && !proc.package.startsWith('com.android.') && !proc.package.startsWith('com.google.android.inputmethod'));
+      return {
+        ...proc,
+        isUserApp
+      };
+    });
+    applyFiltersAndSort();
   }
 }
 
-// --- Process Table Filtering & Actions ---
-function filterProcesses() {
-  const query = (processSearch.value || '').toLowerCase().trim();
-  const filterType = processFilter.value;
+// --- Multi-Column Sorting & Slicing/Dicing Engine ---
 
-  const filtered = currentProcesses.filter((proc) => {
-    const matchesQuery = proc.name.toLowerCase().includes(query) || proc.package.toLowerCase().includes(query);
+function setFilterType(type) {
+  activeFilter = type;
+  const chips = ['all', 'apps', 'system', 'hogs'];
+  chips.forEach((c) => {
+    const el = document.getElementById(`chip-${c}`);
+    if (el) {
+      if (c === type) {
+        el.className = 'px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold transition';
+      } else {
+        el.className = 'px-3 py-1 rounded-lg text-slate-400 hover:text-white transition';
+      }
+    }
+  });
+  applyFiltersAndSort();
+}
+
+function toggleSort(column) {
+  if (sortColumn === column) {
+    sortDirection = sortDirection === 'asc' ? 'desc' : 'asc';
+  } else {
+    sortColumn = column;
+    sortDirection = column === 'name' || column === 'package' ? 'asc' : 'desc';
+  }
+  updateSortIndicators();
+  applyFiltersAndSort();
+}
+
+function onSortDropdownChange(val) {
+  const parts = val.split('-');
+  sortColumn = parts[0];
+  sortDirection = parts[1] || 'desc';
+  updateSortIndicators();
+  applyFiltersAndSort();
+}
+
+function updateSortIndicators() {
+  const columns = ['name', 'package', 'pid', 'cpu', 'memMb'];
+  columns.forEach((col) => {
+    const th = document.getElementById(`th-${col}`);
+    if (th) {
+      const icon = th.querySelector('.sort-icon');
+      if (col === sortColumn) {
+        th.className = 'py-3 px-4 sortable sort-active';
+        if (icon) icon.textContent = sortDirection === 'asc' ? '▲' : '▼';
+      } else {
+        th.className = 'py-3 px-4 sortable text-slate-400';
+        if (icon) icon.textContent = '↕';
+      }
+    }
+  });
+
+  if (selectSortField) {
+    selectSortField.value = `${sortColumn}-${sortDirection}`;
+  }
+}
+
+function applyFiltersAndSort() {
+  const query = (processSearch.value || '').toLowerCase().trim();
+  const limit = parseInt(selectPageLimit.value, 10) || 50;
+
+  // 1. Filter
+  let filtered = currentProcesses.filter((proc) => {
+    const matchesQuery =
+      proc.name.toLowerCase().includes(query) ||
+      proc.package.toLowerCase().includes(query) ||
+      String(proc.pid).includes(query);
     if (!matchesQuery) return false;
 
-    if (filterType === 'apps') return proc.isPackage;
-    if (filterType === 'system') return proc.isSystem;
+    if (activeFilter === 'apps') return proc.isUserApp || proc.isPackage;
+    if (activeFilter === 'system') return proc.isSystem;
+    if (activeFilter === 'hogs') return proc.cpu > 5 || proc.memMb > 150;
     return true;
   });
 
-  renderProcessTable(filtered);
+  // 2. Sort
+  filtered.sort((a, b) => {
+    let valA = a[sortColumn];
+    let valB = b[sortColumn];
+
+    if (typeof valA === 'string') {
+      const comp = valA.localeCompare(valB);
+      return sortDirection === 'asc' ? comp : -comp;
+    }
+
+    valA = valA || 0;
+    valB = valB || 0;
+    return sortDirection === 'asc' ? valA - valB : valB - valA;
+  });
+
+  // Update counter
+  processCountBadge.textContent = `${filtered.length} active`;
+
+  // 3. Slice
+  const sliced = filtered.slice(0, limit);
+  renderProcessTable(sliced);
 }
 
 function renderProcessTable(processes) {
   if (!processes || processes.length === 0) {
     processTableBody.innerHTML = `
       <tr>
-        <td colspan="7" class="py-6 text-center text-slate-500 font-sans">
-          No matching running processes found.
+        <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
+          No matching running processes found with current filters.
         </td>
       </tr>
     `;
     return;
   }
 
-  processTableBody.innerHTML = processes.map((proc) => {
-    const cpuClass = proc.cpu > 10 ? 'text-amber-400 font-bold' : proc.cpu > 25 ? 'text-red-400 font-black' : 'text-slate-300';
-    const typeBadge = proc.isPackage
-      ? '<span class="px-2 py-0.5 rounded bg-blue-500/20 text-blue-400 text-[10px]">App</span>'
-      : '<span class="px-2 py-0.5 rounded bg-slate-800 text-slate-400 text-[10px]">System</span>';
+  processTableBody.innerHTML = processes
+    .map((proc) => {
+      const isHog = proc.cpu > 10 || proc.memMb > 250;
+      const cpuClass = proc.cpu > 15 ? 'text-red-400 font-black' : proc.cpu > 5 ? 'text-amber-400 font-bold' : 'text-slate-300';
+      const isUser = userInstalledPackages.has(proc.package) || proc.isUserApp;
 
-    return `
-      <tr class="hover:bg-slate-800/40 transition">
+      const typeBadge = isUser
+        ? '<span class="px-2 py-0.5 rounded-full badge-user text-[10px] font-bold">User App</span>'
+        : proc.isPackage
+        ? '<span class="px-2 py-0.5 rounded-full bg-cyan-950 text-cyan-300 border border-cyan-800 text-[10px]">App</span>'
+        : '<span class="px-2 py-0.5 rounded-full badge-sys text-[10px]">System</span>';
+
+      return `
+      <tr class="hover:bg-slate-800/40 transition group">
         <td class="py-2.5 px-4 font-sans font-medium text-white flex items-center gap-2">
           <span class="w-6 h-6 rounded bg-slate-800 text-slate-300 flex items-center justify-center font-bold text-xs uppercase">${proc.name.slice(0, 2)}</span>
-          ${escapeHtml(proc.name)}
+          <span class="truncate max-w-[140px] md:max-w-xs" title="${escapeHtml(proc.name)}">${escapeHtml(proc.name)}</span>
+          ${isHog ? '<span title="Resource Hog" class="text-amber-400 text-xs">🔥</span>' : ''}
         </td>
-        <td class="py-2.5 px-4 text-slate-400 text-xs">${escapeHtml(proc.package)}</td>
+        <td class="py-2.5 px-4 text-slate-400 text-xs font-mono truncate max-w-[150px] md:max-w-sm" title="${escapeHtml(proc.package)}">
+          ${escapeHtml(proc.package)}
+        </td>
         <td class="py-2.5 px-4 text-slate-400">${proc.pid}</td>
         <td class="py-2.5 px-4 ${cpuClass}">${proc.cpu}%</td>
         <td class="py-2.5 px-4 font-bold text-white">${proc.memMb} MB</td>
         <td class="py-2.5 px-4">${typeBadge}</td>
         <td class="py-2.5 px-4 text-right">
-          ${proc.isPackage ? `
-            <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" class="px-2.5 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs font-sans transition">
-              End Task
-            </button>
-          ` : `
-            <span class="text-slate-600 font-sans text-xs">Protected</span>
-          `}
+          <div class="flex items-center justify-end gap-1.5">
+            ${proc.isPackage ? `
+              <button onclick="launchApp('${escapeHtml(proc.package)}')" title="Open App on TV" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded text-xs transition">
+                ▶ Open
+              </button>
+              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
+                End Task
+              </button>
+              <button onclick="clearAppData('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Clear App Cache" class="px-2 py-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-400 rounded text-xs transition">
+                Clear
+              </button>
+            ` : `
+              <button onclick="killProcess('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Force Stop" class="px-2 py-1 bg-red-600/20 hover:bg-red-600 text-red-400 hover:text-white rounded text-xs transition">
+                End Task
+              </button>
+            `}
+            ${isUser ? `
+              <button onclick="uninstallApp('${escapeHtml(proc.package)}', '${escapeHtml(proc.name)}')" title="Uninstall from TV" class="px-2 py-1 bg-red-950 hover:bg-red-800 text-red-300 border border-red-700 rounded text-xs transition">
+                🗑️ Uninstall
+              </button>
+            ` : ''}
+          </div>
         </td>
       </tr>
     `;
-  }).join('');
+    })
+    .join('');
 }
+
+// --- App Management Actions ---
 
 // Kill Process
 async function killProcess(pkg, name) {
-  if (!confirm(`Are you sure you want to kill ${name}? This will free its memory immediately.`)) {
-    return;
-  }
+  if (!confirm(`Force-stop ${name}? This will immediately release its RAM.`)) return;
 
   try {
     const res = await fetch('/api/process/kill', {
@@ -251,13 +389,192 @@ async function killProcess(pkg, name) {
     });
     const data = await res.json();
     if (data.success) {
-      alert(`Successfully terminated ${name}!`);
       requestManualSnapshot();
     } else {
       alert(`Failed to kill process: ${data.error}`);
     }
   } catch (err) {
     alert(`Error: ${err.message}`);
+  }
+}
+
+// Launch App
+async function launchApp(pkg) {
+  try {
+    const res = await fetch('/api/package/launch', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ package: pkg })
+    });
+    const data = await res.json();
+    if (!data.success) alert(`Failed to launch: ${data.error}`);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// Clear App Data
+async function clearAppData(pkg, name) {
+  if (!confirm(`Clear cache and data for ${name}?`)) return;
+
+  try {
+    const res = await fetch('/api/package/clear-data', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ package: pkg })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`Data cleared for ${name}!`);
+      requestManualSnapshot();
+    } else {
+      alert(`Failed to clear data: ${data.output || data.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// Uninstall App
+async function uninstallApp(pkg, name) {
+  if (!confirm(`Are you sure you want to completely UNINSTALL ${name} from your Android TV?`)) return;
+
+  try {
+    const res = await fetch('/api/package/uninstall', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ package: pkg })
+    });
+    const data = await res.json();
+    if (data.success) {
+      alert(`Successfully uninstalled ${name}!`);
+      userInstalledPackages.delete(pkg);
+      requestManualSnapshot();
+      fetchPackagesList();
+    } else {
+      alert(`Uninstall failed: ${data.error}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// --- Drag & Drop APK Sideload & Installation ---
+
+function setupDragAndDrop() {
+  const dropzone = document.getElementById('apk-dropzone');
+  if (!dropzone) return;
+
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      dropzone.classList.add('drag-over');
+    });
+  });
+
+  ['dragleave', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      dropzone.classList.remove('drag-over');
+    });
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    if (e.dataTransfer && e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      handleFileSelected(e.dataTransfer.files);
+    }
+  });
+}
+
+function handleFileSelected(files) {
+  if (!files || files.length === 0) return;
+  const file = files[0];
+  if (!file.name.endsWith('.apk')) {
+    alert('Please select a valid Android .apk file!');
+    return;
+  }
+
+  selectedApkFile = file;
+  document.getElementById('apk-filename-display').textContent = file.name;
+  const sizeMb = (file.size / (1024 * 1024)).toFixed(1);
+  document.getElementById('apk-filesize-display').textContent = `${sizeMb} MB ready to install`;
+  document.getElementById('btn-submit-install').disabled = false;
+}
+
+function openInstallModal() {
+  if (!isConnected) return alert('Connect to Android TV first');
+  document.getElementById('modal-install').classList.remove('hidden');
+}
+
+function closeInstallModal() {
+  document.getElementById('modal-install').classList.add('hidden');
+  document.getElementById('install-progress-box').classList.add('hidden');
+  selectedApkFile = null;
+  document.getElementById('apk-filename-display').textContent = 'Drag & Drop .APK file here';
+  document.getElementById('apk-filesize-display').textContent = 'or click to browse from computer';
+  document.getElementById('btn-submit-install').disabled = true;
+}
+
+async function uploadAndInstallApk() {
+  if (!selectedApkFile) return;
+
+  const btn = document.getElementById('btn-submit-install');
+  btn.disabled = true;
+
+  const progressBox = document.getElementById('install-progress-box');
+  const progressBar = document.getElementById('install-progress-bar');
+  const statusText = document.getElementById('install-status-text');
+  const percentText = document.getElementById('install-percent-text');
+
+  progressBox.classList.remove('hidden');
+  progressBar.style.width = '15%';
+  statusText.textContent = 'Uploading APK to home server...';
+  percentText.textContent = '15%';
+
+  const formData = new FormData();
+  formData.append('apk', selectedApkFile);
+
+  try {
+    const xhr = new XMLHttpRequest();
+    xhr.open('POST', '/api/package/install');
+
+    xhr.upload.onprogress = (e) => {
+      if (e.lengthComputable) {
+        const percent = Math.round((e.loaded / e.total) * 70); // 70% upload, 30% install
+        progressBar.style.width = `${percent}%`;
+        percentText.textContent = `${percent}%`;
+      }
+    };
+
+    xhr.onload = () => {
+      if (xhr.status === 200) {
+        progressBar.style.width = '100%';
+        percentText.textContent = '100%';
+        statusText.textContent = 'Installed successfully!';
+        setTimeout(() => {
+          alert('APK installed successfully on your Android TV!');
+          closeInstallModal();
+          fetchPackagesList();
+          requestManualSnapshot();
+        }, 600);
+      } else {
+        const err = JSON.parse(xhr.responseText || '{}');
+        alert(`Installation error: ${err.error || 'Installation failed'}`);
+        btn.disabled = false;
+      }
+    };
+
+    xhr.onerror = () => {
+      alert('Upload failed due to network error.');
+      btn.disabled = false;
+    };
+
+    progressBar.style.width = '75%';
+    statusText.textContent = 'Installing on TV over ADB...';
+    xhr.send(formData);
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+    btn.disabled = false;
   }
 }
 
@@ -289,6 +606,7 @@ async function toggleConnect() {
       if (data.success) {
         localStorage.setItem('tvmaster_last_ip', ip);
         setConnectedState(true, ip, data.deviceInfo);
+        fetchPackagesList();
       } else {
         alert(`Connection Failed: ${data.error || 'Check that Network Debugging is enabled on TV'}`);
         setConnectedState(false);
@@ -393,7 +711,9 @@ async function startDiscoveryScan() {
     const res = await fetch('/api/discover');
     const data = await res.json();
     if (data.devices && data.devices.length > 0) {
-      listEl.innerHTML = data.devices.map((dev) => `
+      listEl.innerHTML = data.devices
+        .map(
+          (dev) => `
         <div class="flex items-center justify-between p-3 bg-slate-950 border border-slate-800 rounded-xl">
           <div>
             <p class="font-bold text-white text-xs">${dev.name}</p>
@@ -403,7 +723,9 @@ async function startDiscoveryScan() {
             Connect
           </button>
         </div>
-      `).join('');
+      `
+        )
+        .join('');
     } else {
       listEl.innerHTML = '<div class="text-center py-6 text-slate-400 text-xs">No devices found with port 5555 open.<br>Ensure "USB/Network Debugging" is enabled on your TV.</div>';
     }
@@ -430,7 +752,9 @@ async function openDebloatModal() {
     const res = await fetch('/api/packages');
     const data = await res.json();
     if (data.bloatware && data.bloatware.length > 0) {
-      listEl.innerHTML = data.bloatware.map((item) => `
+      listEl.innerHTML = data.bloatware
+        .map(
+          (item) => `
         <div class="flex items-center justify-between p-3 bg-slate-950 rounded-xl border border-slate-800">
           <div>
             <div class="flex items-center gap-2">
@@ -439,11 +763,17 @@ async function openDebloatModal() {
             </div>
             <p class="text-[10px] text-slate-400 font-mono">${escapeHtml(item.package)}</p>
           </div>
-          <button onclick="toggleFreeze('${escapeHtml(item.package)}', ${item.isFrozen})" class="px-3 py-1 text-xs font-semibold rounded-lg transition ${item.isFrozen ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30' : 'bg-red-600/20 text-red-400 border border-red-500/30'}">
+          <button onclick="toggleFreeze('${escapeHtml(item.package)}', ${item.isFrozen})" class="px-3 py-1 text-xs font-semibold rounded-lg transition ${
+            item.isFrozen
+              ? 'bg-emerald-600/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-red-600/20 text-red-400 border border-red-500/30'
+          }">
             ${item.isFrozen ? 'Frozen (Disabled)' : 'Active (Freeze)'}
           </button>
         </div>
-      `).join('');
+      `
+        )
+        .join('');
     }
   } catch (err) {
     listEl.innerHTML = `<div class="text-center py-4 text-red-400">Failed to load packages: ${err.message}</div>`;

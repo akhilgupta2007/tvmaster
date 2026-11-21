@@ -7,6 +7,25 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.1.0] - 2026-11-20
+
+### Added
+* **Process Slicing & Advanced Sorting (Task Manager Rework)**:
+  * Clickable column headers on Name, Package, PID, CPU %, and Memory (PSS in MB) with ascending/descending directional indicators.
+  * Fast filter chips: "All", "Installed Apps", "System Daemons", and "🔥 Resource Hogs" (processes consuming > 5% CPU or > 150MB RAM).
+  * Real-time search filter matching name, package, or PID.
+  * Slicing limits: Top 25, Top 50, Top 100, and All processes.
+* **App Installation & Sideloading (Wireless APK Sideload)**:
+  * Interactive Drag & Drop modal for `.apk` files directly from laptop/phone browser.
+  * Real-time upload and installation progress indicator.
+  * Installs on TV wirelessly over ADB via `adb install -r -g`.
+* **Full App Lifecycle Actions from UI**:
+  * **Uninstall App**: Completely removes user applications (`pm uninstall`) from TV with one click.
+  * **Open / Launch**: Starts an application on the TV directly from the web dashboard.
+  * **Clear Cache & Data**: Resets app state and frees storage (`pm clear`).
+  * **End Task**: Terminates running apps and background services immediately.
+* **Extended MCP Tools**: Added `tv_uninstall_package`, `tv_clear_app_data`, and `tv_launch_package`.
+
 ## [1.0.0] - 2026-11-20
 
 ### Added

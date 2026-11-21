@@ -4,7 +4,7 @@
  */
 
 const APP_NAME = 'TvMaster';
-const APP_VERSION = '1.0.0';
+const APP_VERSION = '1.1.0';
 const DEFAULT_PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3055;
 const DEFAULT_ADB_PORT = 5555;
 

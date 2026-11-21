@@ -231,7 +231,7 @@ class TelemetryService {
     }
 
     // Sort by highest CPU and memory
-    return processes.sort((a, b) => (b.cpu + b.memMb * 0.1) - (a.cpu + a.memMb * 0.1)).slice(0, 25);
+    return processes.sort((a, b) => (b.cpu + b.memMb * 0.1) - (a.cpu + a.memMb * 0.1)).slice(0, 50);
   }
 
   /**

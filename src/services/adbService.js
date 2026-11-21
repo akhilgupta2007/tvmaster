@@ -233,6 +233,70 @@ class AdbService {
   }
 
   /**
+   * Install an APK file on the TV via adb install -r
+   */
+  async installApk(apkFilePath) {
+    if (!this.connected || !this.deviceIp) {
+      throw new Error('Not connected to any Android TV device');
+    }
+
+    const target = `${this.deviceIp}:${this.devicePort}`;
+    try {
+      const { stdout, stderr } = await execFileAsync(
+        'adb',
+        ['-s', target, 'install', '-r', '-g', apkFilePath],
+        { timeout: 120000 } // Allow 2 mins for large APKs
+      );
+      const output = (stdout + ' ' + stderr).trim();
+      if (output.includes('Success')) {
+        return { success: true, message: 'APK installed successfully!' };
+      } else {
+        throw new Error(output || 'Installation failed');
+      }
+    } catch (err) {
+      throw new Error(`Failed to install APK: ${err.message}`);
+    }
+  }
+
+  /**
+   * Uninstall a package from the TV via pm uninstall
+   */
+  async uninstallPackage(packageName, keepData = false) {
+    if (!packageName || !REGEX_PACKAGE.test(packageName)) {
+      throw new Error(`Invalid package name: ${packageName}`);
+    }
+    const cmd = keepData ? `pm uninstall -k ${packageName}` : `pm uninstall ${packageName}`;
+    const res = await this.shell(cmd, 15000);
+    if (res.includes('Success')) {
+      return { success: true, message: `Successfully uninstalled ${packageName}` };
+    } else {
+      throw new Error(res.trim() || 'Uninstall failed');
+    }
+  }
+
+  /**
+   * Clear app data and cache (pm clear)
+   */
+  async clearAppData(packageName) {
+    if (!packageName || !REGEX_PACKAGE.test(packageName)) {
+      throw new Error(`Invalid package name: ${packageName}`);
+    }
+    const res = await this.shell(`pm clear ${packageName}`, 10000);
+    return { success: res.includes('Success'), output: res.trim() };
+  }
+
+  /**
+   * Launch / Open an application (monkey -p <pkg> -c android.intent.category.LAUNCHER 1)
+   */
+  async launchPackage(packageName) {
+    if (!packageName || !REGEX_PACKAGE.test(packageName)) {
+      throw new Error(`Invalid package name: ${packageName}`);
+    }
+    await this.shell(`monkey -p ${packageName} -c android.intent.category.LAUNCHER 1`, 5000);
+    return { success: true, message: `Launched ${packageName}` };
+  }
+
+  /**
    * Reboot TV
    */
   async reboot() {

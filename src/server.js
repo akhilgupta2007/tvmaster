@@ -8,7 +8,14 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const cors = require('cors');
+const multer = require('multer');
 const { WebSocketServer } = require('ws');
+
+// Configure temporary upload storage for APK installation
+const upload = multer({
+  dest: '/tmp/tvmaster-uploads/',
+  limits: { fileSize: 500 * 1024 * 1024 } // Support up to 500MB APKs
+});
 
 const {
   APP_NAME,
@@ -95,6 +102,10 @@ app.post('/api/process/flush-ram', (req, res) => processController.flushRam(req,
 app.get('/api/packages', (req, res) => processController.listPackages(req, res));
 app.post('/api/package/freeze', (req, res) => processController.freezePackage(req, res));
 app.post('/api/package/unfreeze', (req, res) => processController.unfreezePackage(req, res));
+app.post('/api/package/uninstall', (req, res) => processController.uninstallPackage(req, res));
+app.post('/api/package/clear-data', (req, res) => processController.clearAppData(req, res));
+app.post('/api/package/launch', (req, res) => processController.launchPackage(req, res));
+app.post('/api/package/install', upload.single('apk'), (req, res) => processController.installApk(req, res));
 
 // System Tuning & Remote
 app.get('/api/tuning/animation-scale', (req, res) => tuningController.getAnimationScale(req, res));

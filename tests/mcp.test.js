@@ -9,9 +9,9 @@ const { createMcpServer } = require('../src/mcp/server');
 describe('TvMaster MCP Server Tool Registry Tests', () => {
   const mcp = createMcpServer();
 
-  test('MCP Server initializes with TvMaster name and version 1.0.0', () => {
+  test('MCP Server initializes with TvMaster name and version 1.1.0', () => {
     assert.strictEqual(mcp.server._serverInfo.name, 'TvMaster');
-    assert.strictEqual(mcp.server._serverInfo.version, '1.0.0');
+    assert.strictEqual(mcp.server._serverInfo.version, '1.1.0');
   });
 
   test('MCP Server registers all required Android TV management tools', () => {

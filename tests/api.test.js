@@ -19,12 +19,12 @@ describe('TvMaster API & Security Validation Tests', () => {
 
   const baseUrl = `http://localhost:${TEST_PORT}`;
 
-  test('GET /api/health returns 200 with TvMaster v1.0.0 metadata', async () => {
+  test('GET /api/health returns 200 with TvMaster v1.1.0 metadata', async () => {
     const res = await fetch(`${baseUrl}/api/health`);
     assert.strictEqual(res.status, 200);
     const data = await res.json();
     assert.strictEqual(data.app, 'TvMaster');
-    assert.strictEqual(data.version, '1.0.0');
+    assert.strictEqual(data.version, '1.1.0');
     assert.strictEqual(data.status, 'ok');
   });
 
@@ -105,5 +105,24 @@ describe('TvMaster API & Security Validation Tests', () => {
       });
       assert.strictEqual(res.status, 400, `Expected 400 for malicious key: ${key}`);
     }
+  });
+
+  test('Security: POST /api/package/uninstall rejects invalid package names', async () => {
+    const malicious = ['com.app; rm -rf /', 'evil|reboot', '; whoami'];
+    for (const pkg of malicious) {
+      const res = await fetch(`${baseUrl}/api/package/uninstall`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ package: pkg })
+      });
+      assert.strictEqual(res.status, 400);
+    }
+  });
+
+  test('Security: POST /api/package/install rejects missing files', async () => {
+    const res = await fetch(`${baseUrl}/api/package/install`, {
+      method: 'POST'
+    });
+    assert.strictEqual(res.status, 400);
   });
 });

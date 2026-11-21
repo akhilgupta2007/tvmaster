@@ -346,6 +346,88 @@ function createMcpServer() {
     }
   );
 
+  // Tool 13: Uninstall Package
+  server.tool(
+    'tv_uninstall_package',
+    'Uninstall an application or package from the Android TV',
+    {
+      package: z.string().describe('Package ID to uninstall (e.g. com.example.app)'),
+      keepData: z.boolean().optional().default(false).describe('Keep app cache/data directory')
+    },
+    async ({ package: pkg, keepData }) => {
+      try {
+        const result = await adbService.uninstallPackage(pkg, keepData);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Uninstall failed: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 14: Clear App Data
+  server.tool(
+    'tv_clear_app_data',
+    'Clear all data and cache for an application (pm clear)',
+    {
+      package: z.string().describe('Package ID to clear')
+    },
+    async ({ package: pkg }) => {
+      try {
+        const result = await adbService.clearAppData(pkg);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Clear data failed: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 15: Launch Package
+  server.tool(
+    'tv_launch_package',
+    'Launch or open an application on the Android TV',
+    {
+      package: z.string().describe('Package ID to launch')
+    },
+    async ({ package: pkg }) => {
+      try {
+        const result = await adbService.launchPackage(pkg);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Launch failed: ${err.message}` }]
+        };
+      }
+    }
+  );
+
   return server;
 }
 

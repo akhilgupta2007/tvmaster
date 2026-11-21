@@ -123,6 +123,79 @@ class ProcessController {
       return res.status(500).json({ error: err.message });
     }
   }
+  /**
+   * Uninstall a package
+   */
+  async uninstallPackage(req, res) {
+    try {
+      const { package: pkg, keepData } = req.body;
+      if (!pkg || !REGEX_PACKAGE.test(pkg)) {
+        return res.status(400).json({ error: 'Invalid or missing package name' });
+      }
+
+      const result = await adbService.uninstallPackage(pkg, keepData === true);
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Clear app cache / data
+   */
+  async clearAppData(req, res) {
+    try {
+      const { package: pkg } = req.body;
+      if (!pkg || !REGEX_PACKAGE.test(pkg)) {
+        return res.status(400).json({ error: 'Invalid package name' });
+      }
+
+      const result = await adbService.clearAppData(pkg);
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Launch package
+   */
+  async launchPackage(req, res) {
+    try {
+      const { package: pkg } = req.body;
+      if (!pkg || !REGEX_PACKAGE.test(pkg)) {
+        return res.status(400).json({ error: 'Invalid package name' });
+      }
+
+      const result = await adbService.launchPackage(pkg);
+      return res.json(result);
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
+
+  /**
+   * Install uploaded APK
+   */
+  async installApk(req, res) {
+    try {
+      if (!req.file) {
+        return res.status(400).json({ error: 'No APK file uploaded' });
+      }
+
+      const apkPath = req.file.path;
+      const fs = require('fs');
+      try {
+        const result = await adbService.installApk(apkPath);
+        return res.json(result);
+      } finally {
+        // Always clean up temp uploaded APK file
+        fs.unlink(apkPath, () => {});
+      }
+    } catch (err) {
+      return res.status(500).json({ error: err.message });
+    }
+  }
 }
 
 module.exports = new ProcessController();

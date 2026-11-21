@@ -6,6 +6,13 @@
   <title>TvMaster v1.0.0 - Android TV Task Manager & Resource Monitor</title>
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <link rel="stylesheet" href="/css/styles.css">
+  <style>
+    th.sortable:hover { background-color: rgba(30, 41, 59, 0.8); cursor: pointer; }
+    th.sort-active { color: #60a5fa; border-bottom: 2px solid #3b82f6; }
+    .badge-user { background: rgba(59, 130, 246, 0.15); color: #60a5fa; border: 1px solid rgba(59, 130, 246, 0.3); }
+    .badge-sys { background: rgba(100, 116, 139, 0.15); color: #94a3b8; border: 1px solid rgba(100, 116, 139, 0.3); }
+    .drag-over { border-color: #3b82f6 !important; background: rgba(59, 130, 246, 0.1) !important; }
+  </style>
 </head>
 <body class="min-h-screen p-3 md:p-6 text-slate-100 flex flex-col justify-between">
 
@@ -23,7 +30,7 @@
           <div class="flex items-center gap-2">
             <h1 class="text-xl font-bold tracking-tight text-white">TvMaster</h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.0.0</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.1.0</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -40,7 +47,7 @@
           Auto-Discover
         </button>
         <div class="flex items-center bg-slate-950 border border-slate-800 rounded-xl overflow-hidden focus-within:border-blue-500 transition">
-          <input id="input-ip" type="text" placeholder="192.168.1.145" class="bg-transparent px-3 py-2 text-xs text-white focus:outline-none w-36 font-mono">
+          <input id="input-ip" type="text" placeholder="10.0.0.13" class="bg-transparent px-3 py-2 text-xs text-white focus:outline-none w-36 font-mono">
           <span class="text-slate-600 text-xs">:</span>
           <input id="input-port" type="text" value="5555" class="bg-transparent px-2 py-2 text-xs text-slate-400 focus:outline-none w-14 font-mono">
         </div>
@@ -163,47 +170,93 @@
         <button onclick="openDebloatModal()" class="px-3 py-1.5 text-xs font-medium bg-indigo-950 hover:bg-indigo-900 text-indigo-300 rounded-lg border border-indigo-800 transition">🛡️ Bloatware Hunter</button>
       </div>
       <div class="flex items-center gap-2">
+        <button onclick="openInstallModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md glow-emerald transition flex items-center gap-1.5">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+          📦 Install APK
+        </button>
         <button onclick="openRemoteModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-blue-600 hover:bg-blue-500 text-white rounded-xl shadow-md glow-blue transition flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
-          Virtual Remote & Keyboard
+          Virtual Remote
         </button>
       </div>
     </div>
 
-    <!-- Live Process Table (Task Manager) -->
+    <!-- Live Process & App Manager (Windows Task Manager Style) -->
     <main class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
-      <div class="p-4 border-b border-slate-800 flex flex-wrap items-center justify-between gap-4">
-        <div>
-          <h2 class="font-bold text-white text-base">Running Processes & Resource Hogs</h2>
-          <p class="text-xs text-slate-400">Live snapshot. Click "End Task" to immediately release memory from hung or background apps.</p>
+      <!-- Table Header & Slice/Dice Controls -->
+      <div class="p-4 border-b border-slate-800 space-y-3">
+        <div class="flex flex-wrap items-center justify-between gap-4">
+          <div>
+            <h2 class="font-bold text-white text-base flex items-center gap-2">
+              <span>Running Processes & Resource Hogs</span>
+              <span id="process-count-badge" class="px-2 py-0.5 rounded-full text-xs bg-slate-800 text-slate-300">0 active</span>
+            </h2>
+            <p class="text-xs text-slate-400">Click column headers to sort. Filter, search, and manage apps with granular actions.</p>
+          </div>
+          <!-- Fast Filter Chips -->
+          <div class="flex items-center gap-1.5 bg-slate-950 p-1 rounded-xl border border-slate-800 text-xs">
+            <button onclick="setFilterType('all')" id="chip-all" class="px-3 py-1 rounded-lg bg-blue-600 text-white font-semibold transition">All</button>
+            <button onclick="setFilterType('apps')" id="chip-apps" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">Installed Apps</button>
+            <button onclick="setFilterType('system')" id="chip-system" class="px-3 py-1 rounded-lg text-slate-400 hover:text-white transition">System Daemons</button>
+            <button onclick="setFilterType('hogs')" id="chip-hogs" class="px-3 py-1 rounded-lg text-amber-400 hover:text-amber-300 transition">🔥 Resource Hogs</button>
+          </div>
         </div>
-        <div class="flex items-center gap-3">
-          <input id="process-search" oninput="filterProcesses()" type="text" placeholder="Filter processes..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white focus:outline-none focus:border-blue-500 w-56">
-          <select id="process-filter" onchange="filterProcesses()" class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white">
-            <option value="all">All Processes</option>
-            <option value="apps">Apps Only</option>
-            <option value="system">System / Daemons</option>
-          </select>
+
+        <!-- Slicing & Dicing Bar -->
+        <div class="flex flex-wrap items-center justify-between gap-3 pt-1 text-xs">
+          <div class="flex items-center gap-2 flex-1 max-w-md">
+            <div class="relative w-full">
+              <input id="process-search" oninput="applyFiltersAndSort()" type="text" placeholder="Search by name, package, or PID..." class="bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 pl-8 text-xs text-white focus:outline-none focus:border-blue-500 w-full">
+              <svg class="w-3.5 h-3.5 text-slate-500 absolute left-2.5 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+            </div>
+          </div>
+          <div class="flex items-center gap-2">
+            <span class="text-slate-400">Sort By:</span>
+            <select id="select-sort-field" onchange="onSortDropdownChange(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+              <option value="memMb-desc">Memory (Highest First)</option>
+              <option value="cpu-desc">CPU % (Highest First)</option>
+              <option value="name-asc">App Name (A-Z)</option>
+              <option value="pid-asc">PID (Low to High)</option>
+            </select>
+            <span class="text-slate-400 ml-2">Display Limit:</span>
+            <select id="select-page-limit" onchange="applyFiltersAndSort()" class="bg-slate-950 border border-slate-800 rounded-lg px-2.5 py-1.5 text-xs text-white">
+              <option value="25">Top 25</option>
+              <option value="50" selected>Top 50</option>
+              <option value="100">Top 100</option>
+              <option value="999">All</option>
+            </select>
+          </div>
         </div>
       </div>
 
+      <!-- Process Table with Clickable Sort Headers -->
       <div class="overflow-x-auto">
         <table class="w-full text-left text-xs">
-          <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800">
+          <thead class="bg-slate-950/80 text-slate-400 uppercase font-semibold border-b border-slate-800 select-none">
             <tr>
-              <th class="py-3 px-4">Process / App Name</th>
-              <th class="py-3 px-4">Package ID</th>
-              <th class="py-3 px-4">PID</th>
-              <th class="py-3 px-4">CPU %</th>
-              <th class="py-3 px-4">RAM (PSS)</th>
-              <th class="py-3 px-4">Type</th>
-              <th class="py-3 px-4 text-right">Actions</th>
+              <th onclick="toggleSort('name')" class="py-3 px-4 sortable" id="th-name">
+                <span class="flex items-center gap-1">Process / App Name <span class="sort-icon">↕</span></span>
+              </th>
+              <th onclick="toggleSort('package')" class="py-3 px-4 sortable" id="th-package">
+                <span class="flex items-center gap-1">Package ID <span class="sort-icon">↕</span></span>
+              </th>
+              <th onclick="toggleSort('pid')" class="py-3 px-4 sortable w-20" id="th-pid">
+                <span class="flex items-center gap-1">PID <span class="sort-icon">↕</span></span>
+              </th>
+              <th onclick="toggleSort('cpu')" class="py-3 px-4 sortable w-24" id="th-cpu">
+                <span class="flex items-center gap-1">CPU % <span class="sort-icon">↕</span></span>
+              </th>
+              <th onclick="toggleSort('memMb')" class="py-3 px-4 sortable w-28 sort-active" id="th-memMb">
+                <span class="flex items-center gap-1">RAM (MB) <span class="sort-icon">▼</span></span>
+              </th>
+              <th class="py-3 px-4 w-24">Type</th>
+              <th class="py-3 px-4 text-right w-64">Management Actions</th>
             </tr>
           </thead>
           <tbody id="process-table-body" class="divide-y divide-slate-800/60 font-mono text-slate-300">
             <tr>
               <td colspan="7" class="py-8 text-center text-slate-500 font-sans">
-                Connect to an Android TV to load live running processes.
+                Connecting to Android TV...
               </td>
             </tr>
           </tbody>
@@ -214,11 +267,51 @@
 
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
-    <div>TvMaster v1.0.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
+    <div>TvMaster v1.1.0 • Lightweight Zero-Overhead Android TV Task Manager</div>
     <div>Self-hosted Docker Hub Edition</div>
   </footer>
 
   <!-- --- MODALS --- -->
+
+  <!-- Install APK Modal (Drag and Drop) -->
+  <div id="modal-install" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <h3 class="font-bold text-white text-base flex items-center gap-2">
+          <span>📦 Wireless APK Sideload & Install</span>
+        </h3>
+        <button onclick="closeInstallModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+
+      <!-- Drag & Drop Area -->
+      <div id="apk-dropzone" onclick="document.getElementById('apk-file-input').click()" class="border-2 border-dashed border-slate-700 hover:border-blue-500 rounded-2xl p-6 text-center cursor-pointer transition bg-slate-950/60 space-y-3">
+        <input id="apk-file-input" type="file" accept=".apk" onchange="handleFileSelected(this.files)" class="hidden">
+        <div class="w-12 h-12 mx-auto rounded-full bg-blue-600/20 text-blue-400 flex items-center justify-center">
+          <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12"/></svg>
+        </div>
+        <div>
+          <p class="font-bold text-white text-sm" id="apk-filename-display">Drag & Drop .APK file here</p>
+          <p class="text-xs text-slate-400" id="apk-filesize-display">or click to browse from computer</p>
+        </div>
+      </div>
+
+      <!-- Install Progress Bar -->
+      <div id="install-progress-box" class="space-y-1.5 hidden">
+        <div class="flex justify-between text-xs text-slate-400">
+          <span id="install-status-text">Uploading APK to TV...</span>
+          <span id="install-percent-text">0%</span>
+        </div>
+        <div class="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
+          <div id="install-progress-bar" class="bg-blue-500 h-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
+        <button onclick="uploadAndInstallApk()" id="btn-submit-install" disabled class="px-4 py-2 bg-blue-600 disabled:opacity-50 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow glow-blue">Install on TV</button>
+        <button onclick="closeInstallModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+      </div>
+    </div>
+  </div>
 
   <!-- Auto-Discover Modal -->
   <div id="modal-discover" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
