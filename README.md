@@ -4,11 +4,11 @@
 
 <img src="./public/assets/logo.svg" alt="TvMaster Logo" width="96" height="96" />
 
-![Version](https://img.shields.io/badge/version-1.5.1-blue.svg)
+![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Devices](https://img.shields.io/badge/Devices-Android%20TV%20%7C%20Fire%20TV%20%7C%20Shield%20%7C%20Chromecast-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)
-![Tests](https://img.shields.io/badge/tests-42%2F42%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-43%2F43%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Zero-Overhead Android TV, Fire TV & Streaming Device Resource Monitor, Task Manager & Debloat Hub for Docker & Home Servers**
@@ -35,7 +35,10 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
 
 * **⚡ Real-Time Resource Gauges:**
   * **RAM Breakdown:** Visual segmented bar showing Active Apps, Cached Memory, and Free Memory.
-  * **CPU Utilization:** Global CPU % and 1m / 5m / 15m load averages.
+  * **CPU Architecture & Per-Core Utilization (Zero TV Overhead):**
+    * Detects hardware CPU architecture (`ARMv8 64-bit`, `ARMv8 32-bit v7l`, `x86_64`) and SoC platform (e.g., `MediaTek MT9689`).
+    * Real-time dynamic per-core utilization micro-bars (`C0`, `C1`, `C2`, `C3`) parsed directly from `/proc/stat` with zero additional commands or TV load.
+    * 1m / 5m / 15m load averages and kernel execution benchmarks.
   * **Storage Inspector:** Free vs Used internal storage (`/data`).
   * **Thermal Health:** TV CPU temperature and thermal throttling indicator.
 * **📊 Live Task Manager Table:**

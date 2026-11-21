@@ -39,15 +39,25 @@ Active:           980000 kB
   test('parseCpuStat calculates delta correctly over two samples', () => {
     // Reset previous ticks
     telemetryService.prevCpuTicks = null;
+    telemetryService.prevCoreTicks = null;
 
-    const tick1 = 'cpu  1000 0 1000 8000 0 0 0 0 0 0\ncpu0 500 0 500 4000 0 0 0 0 0 0';
+    const tick1 = 'cpu  1000 0 1000 8000 0 0 0 0 0 0\ncpu0 500 0 500 4000 0 0 0 0 0 0\ncpu1 500 0 500 4000 0 0 0 0 0 0';
     const res1 = telemetryService.parseCpuStat(tick1);
     assert.strictEqual(res1.cpuPercent, 0); // First tick has no baseline
+    assert.strictEqual(res1.cores.length, 2);
+    assert.strictEqual(res1.cores[0].percent, 0);
 
-    // Second tick: +200 active, +800 idle (total +1000) -> 20% CPU
-    const tick2 = 'cpu  1100 0 1100 8800 0 0 0 0 0 0\ncpu0 550 0 550 4400 0 0 0 0 0 0';
+    // Second tick: global +200 active, +800 idle (total +1000) -> 20% CPU
+    // Core 0: +150 active, +350 idle (total +500) -> 30% CPU
+    // Core 1: +50 active, +450 idle (total +500) -> 10% CPU
+    const tick2 = 'cpu  1100 0 1100 8800 0 0 0 0 0 0\ncpu0 575 0 575 4350 0 0 0 0 0 0\ncpu1 525 0 525 4450 0 0 0 0 0 0';
     const res2 = telemetryService.parseCpuStat(tick2);
     assert.strictEqual(res2.cpuPercent, 20);
+    assert.strictEqual(res2.cores.length, 2);
+    assert.strictEqual(res2.cores[0].core, 0);
+    assert.strictEqual(res2.cores[0].percent, 30);
+    assert.strictEqual(res2.cores[1].core, 1);
+    assert.strictEqual(res2.cores[1].percent, 10);
   });
 
   test('parseLoadavg parses 1m, 5m, 15m load', () => {

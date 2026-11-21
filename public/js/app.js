@@ -45,6 +45,9 @@ const cpuBadge = document.getElementById('cpu-badge');
 const cpuPercent = document.getElementById('cpu-percent');
 const cpuLoadavg = document.getElementById('cpu-loadavg');
 const barCpu = document.getElementById('bar-cpu');
+const cpuArchBadge = document.getElementById('cpu-arch-badge');
+const cpuSocLabel = document.getElementById('cpu-soc-label');
+const cpuCoresContainer = document.getElementById('cpu-cores-container');
 
 const storageBadge = document.getElementById('storage-badge');
 const storagePercent = document.getElementById('storage-percent');
@@ -145,6 +148,12 @@ function updateTelemetryUI(data) {
     devModel.textContent = data.device.model || 'Android TV';
     devOs.textContent = `${data.device.androidVersion} (API ${data.device.apiLevel})`;
     devRes.textContent = data.device.screenResolution || '1920x1080';
+    if (cpuArchBadge && data.device.cpuArch) {
+      cpuArchBadge.textContent = data.device.cpuArch;
+    }
+    if (cpuSocLabel && data.device.socModel) {
+      cpuSocLabel.textContent = data.device.socModel;
+    }
   }
 
   // RAM
@@ -210,6 +219,27 @@ function updateTelemetryUI(data) {
     }
 
     cpuLoadavg.textContent = `Load: ${cpu.load1}, ${cpu.load5}, ${cpu.load15}`;
+
+    // Render per-core utilization micro-bars
+    if (cpuCoresContainer && Array.isArray(cpu.cores) && cpu.cores.length > 0) {
+      if (cpuSocLabel && (!data.device || !data.device.socModel)) {
+        cpuSocLabel.textContent = `${cpu.cores.length} Cores`;
+      }
+      cpuCoresContainer.innerHTML = cpu.cores.map((c) => {
+        const barColor = c.percent > 75 ? 'bg-red-500' : c.percent > 40 ? 'bg-amber-400' : 'bg-emerald-400';
+        return `
+          <div class="bg-slate-950/80 p-1.5 rounded-lg border border-slate-800 text-[10px]">
+            <div class="flex justify-between items-center text-slate-400 mb-1 leading-none">
+              <span class="font-medium text-slate-300">C${c.core}</span>
+              <span class="font-mono text-white font-bold">${c.percent}%</span>
+            </div>
+            <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+              <div class="h-full rounded-full transition-all duration-300 ${barColor}" style="width: ${c.percent}%"></div>
+            </div>
+          </div>
+        `;
+      }).join('');
+    }
   }
 
   // Storage
@@ -677,6 +707,12 @@ function setConnectedState(connected, ip = '', info = null) {
       devModel.textContent = info.model;
       devOs.textContent = `${info.androidVersion} (API ${info.apiLevel})`;
       devRes.textContent = info.screenResolution;
+      if (cpuArchBadge && info.cpuArch) {
+        cpuArchBadge.textContent = info.cpuArch;
+      }
+      if (cpuSocLabel && info.socModel) {
+        cpuSocLabel.textContent = info.socModel;
+      }
     }
   } else {
     connDot.className = 'w-2 h-2 rounded-full bg-slate-500';
@@ -688,6 +724,9 @@ function setConnectedState(connected, ip = '', info = null) {
     devIp.textContent = '-';
     devOs.textContent = '-';
     devRes.textContent = '-';
+    if (cpuArchBadge) cpuArchBadge.textContent = 'ARM';
+    if (cpuSocLabel) cpuSocLabel.textContent = '';
+    if (cpuCoresContainer) cpuCoresContainer.innerHTML = '';
   }
   // Refresh TV cards active state
   renderTvCards(savedTvDevices, connected ? (ip || (inputIp ? inputIp.value.trim() : '')) : null);

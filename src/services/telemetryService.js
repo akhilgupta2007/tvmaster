@@ -71,44 +71,81 @@ class TelemetryService {
   }
 
   /**
-   * Parse /proc/stat CPU tick counters and calculate delta CPU %
+   * Parse /proc/stat CPU tick counters and calculate global and per-core delta CPU %
    */
   parseCpuStat(cpuStatStr) {
     if (!cpuStatStr || typeof cpuStatStr !== 'string') {
-      return { cpuPercent: 0 };
+      return { cpuPercent: 0, cores: [] };
     }
 
-    const firstLine = cpuStatStr.trim().split('\n')[0];
-    const parts = firstLine.trim().split(/\s+/);
-
-    if (parts[0] !== 'cpu' || parts.length < 5) {
-      return { cpuPercent: 0 };
-    }
-
-    const user = parseInt(parts[1], 10) || 0;
-    const nice = parseInt(parts[2], 10) || 0;
-    const system = parseInt(parts[3], 10) || 0;
-    const idle = parseInt(parts[4], 10) || 0;
-    const iowait = parseInt(parts[5], 10) || 0;
-    const irq = parseInt(parts[6], 10) || 0;
-    const softirq = parseInt(parts[7], 10) || 0;
-    const steal = parseInt(parts[8], 10) || 0;
-
-    const idleTotal = idle + iowait;
-    const activeTotal = user + nice + system + irq + softirq + steal;
-    const total = idleTotal + activeTotal;
-
+    const lines = cpuStatStr.trim().split('\n');
     let cpuPercent = 0;
-    if (this.prevCpuTicks) {
-      const deltaTotal = total - this.prevCpuTicks.total;
-      const deltaActive = activeTotal - this.prevCpuTicks.active;
-      if (deltaTotal > 0) {
-        cpuPercent = Math.max(0, Math.min(100, Math.round((deltaActive / deltaTotal) * 100)));
+    const cores = [];
+
+    if (!this.prevCoreTicks) {
+      this.prevCoreTicks = {};
+    }
+
+    for (const rawLine of lines) {
+      const line = rawLine.trim();
+      const parts = line.split(/\s+/);
+      const tag = parts[0];
+
+      if (tag === 'cpu' && parts.length >= 5) {
+        const user = parseInt(parts[1], 10) || 0;
+        const nice = parseInt(parts[2], 10) || 0;
+        const system = parseInt(parts[3], 10) || 0;
+        const idle = parseInt(parts[4], 10) || 0;
+        const iowait = parseInt(parts[5], 10) || 0;
+        const irq = parseInt(parts[6], 10) || 0;
+        const softirq = parseInt(parts[7], 10) || 0;
+        const steal = parseInt(parts[8], 10) || 0;
+
+        const idleTotal = idle + iowait;
+        const activeTotal = user + nice + system + irq + softirq + steal;
+        const total = idleTotal + activeTotal;
+
+        if (this.prevCpuTicks) {
+          const deltaTotal = total - this.prevCpuTicks.total;
+          const deltaActive = activeTotal - this.prevCpuTicks.active;
+          if (deltaTotal > 0) {
+            cpuPercent = Math.max(0, Math.min(100, Math.round((deltaActive / deltaTotal) * 100)));
+          }
+        }
+        this.prevCpuTicks = { total, active: activeTotal };
+      } else if (/^cpu\d+$/.test(tag) && parts.length >= 5) {
+        const coreNum = parseInt(tag.replace('cpu', ''), 10);
+        const user = parseInt(parts[1], 10) || 0;
+        const nice = parseInt(parts[2], 10) || 0;
+        const system = parseInt(parts[3], 10) || 0;
+        const idle = parseInt(parts[4], 10) || 0;
+        const iowait = parseInt(parts[5], 10) || 0;
+        const irq = parseInt(parts[6], 10) || 0;
+        const softirq = parseInt(parts[7], 10) || 0;
+        const steal = parseInt(parts[8], 10) || 0;
+
+        const idleTotal = idle + iowait;
+        const activeTotal = user + nice + system + irq + softirq + steal;
+        const total = idleTotal + activeTotal;
+
+        let corePercent = 0;
+        const prev = this.prevCoreTicks[tag];
+        if (prev) {
+          const deltaTotal = total - prev.total;
+          const deltaActive = activeTotal - prev.active;
+          if (deltaTotal > 0) {
+            corePercent = Math.max(0, Math.min(100, Math.round((deltaActive / deltaTotal) * 100)));
+          }
+        }
+        this.prevCoreTicks[tag] = { total, active: activeTotal };
+        cores.push({
+          core: coreNum,
+          percent: corePercent
+        });
       }
     }
 
-    this.prevCpuTicks = { total, active: activeTotal };
-    return { cpuPercent };
+    return { cpuPercent, cores };
   }
 
   /**
@@ -342,6 +379,7 @@ class TelemetryService {
         memory,
         cpu: {
           percent: cpu.cpuPercent,
+          cores: cpu.cores || [],
           load1: load.load1,
           load5: load.load5,
           load15: load.load15

@@ -25,7 +25,10 @@ class AdbService {
       manufacturer: 'Unknown',
       androidVersion: 'Unknown',
       apiLevel: 0,
-      screenResolution: 'Unknown'
+      screenResolution: 'Unknown',
+      cpuAbi: 'Unknown',
+      cpuArch: 'ARM',
+      socModel: ''
     };
     this.isConnecting = false;
     this.displaySpecs = null;
@@ -124,6 +127,9 @@ class AdbService {
       const androidVersion = (await this.shell('getprop ro.build.version.release')).trim();
       const apiLevel = parseInt((await this.shell('getprop ro.build.version.sdk')).trim(), 10) || 0;
       const wmSize = (await this.shell('wm size')).trim(); // Physical size: 1920x1080
+      const cpuAbi = (await this.shell('getprop ro.product.cpu.abi')).trim() || 'arm64-v8a';
+      const socModel = (await this.shell('getprop ro.soc.model')).trim() || (await this.shell('getprop ro.hardware')).trim() || '';
+      const socManufacturer = (await this.shell('getprop ro.soc.manufacturer')).trim() || '';
 
       let screenResolution = '1920x1080';
       const sizeMatch = wmSize.match(/(\d+x\d+)/);
@@ -131,12 +137,27 @@ class AdbService {
         screenResolution = sizeMatch[1];
       }
 
+      let cpuArch = 'ARMv8';
+      if (cpuAbi.includes('arm64')) {
+        cpuArch = 'ARMv8 64-bit';
+      } else if (cpuAbi.includes('v7')) {
+        cpuArch = 'ARMv8 (32-bit v7l)';
+      } else if (cpuAbi.includes('x86_64')) {
+        cpuArch = 'x86_64';
+      } else if (cpuAbi.includes('x86')) {
+        cpuArch = 'x86';
+      }
+      const socDisplay = [socManufacturer, socModel].filter(Boolean).join(' ').trim();
+
       this.deviceInfo = {
         model: model || 'Android TV',
         manufacturer: manufacturer || 'Generic',
         androidVersion: androidVersion || 'Unknown',
         apiLevel,
         screenResolution,
+        cpuAbi,
+        cpuArch,
+        socModel: socDisplay,
         displaySpecs: null
       };
 

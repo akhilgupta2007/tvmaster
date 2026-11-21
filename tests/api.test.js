@@ -162,4 +162,12 @@ mActiveSfDisplayMode=DisplayMode{id=0, width=3840, height=2160, xDpi=80.0, yDpi=
     assert.strictEqual(specs.allmSupported, true);
     assert.ok(specs.supportedModes.length >= 2);
   });
+
+  test('AdbService: deviceInfo contains CPU architecture and SoC fields', () => {
+    const adbService = require('../src/services/adbService');
+    assert.ok(adbService.deviceInfo);
+    assert.ok('cpuArch' in adbService.deviceInfo);
+    assert.ok('cpuAbi' in adbService.deviceInfo);
+    assert.ok('socModel' in adbService.deviceInfo);
+  });
 });

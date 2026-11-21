@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.6.0] - 2026-11-21
+
+### Added
+* **Hardware CPU Details & Zero-Overhead Per-Core Utilization**:
+  * **Zero TV Overhead Architecture**: Reads individual core jiffies (`cpu0`, `cpu1`, `cpu2`, `cpu3`) directly from the existing batch read of `/proc/stat` without executing any additional ADB shell command, subprocess, or network roundtrip.
+  * **CPU Architecture & ABI Detection**: Automatically queries device ABI (`ro.product.cpu.abi`) and formats architecture (e.g. `ARMv8 (32-bit v7l)`, `ARMv8 64-bit`, `x86_64`).
+  * **SoC Model & Platform Identification**: Reads SoC manufacturer and model (`ro.soc.manufacturer`, `ro.soc.model`, `ro.hardware`) to display chipset identity (e.g. `MediaTek MT9689`, `Amlogic S905X4`, `Qualcomm Snapdragon`).
+  * **Dynamic Per-Core Micro-Bar Visualizer**: Renders individual micro-bars on the CPU dashboard card for each detected CPU core with color transitions (green <= 40%, amber <= 75%, red > 75%) updating live over WebSocket.
+  * Added unit tests asserting multi-core delta parsing in `telemetry.test.js` and architectural metadata checks in `api.test.js` (43/43 tests passing).
+
 ## [1.5.1] - 2026-11-21
 
 ### Added
