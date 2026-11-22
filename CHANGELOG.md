@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.2] - 2026-11-21
+
+### Changed
+* **UI Declutter & Visual Polish**:
+  * Removed redundant *"Zero TV Overhead"* and *"🛡️ Zero TV Load"* buzzwords across the header, CPU card, modal subtexts, and footer.
+  * Replaced CPU card subtext with clean kernel sampling indicators (`Sampling: /proc/stat`, `Kernel Read: < 1ms`).
+  * Streamlined header and footer branding for an elevated, clutter-free look.
+
 ## [1.7.1] - 2026-11-21
 
 ### Fixed
