@@ -190,7 +190,7 @@ app.get('/api/devices', (req, res) => {
 // Switch active TV profile in 1 click
 app.post('/api/devices/switch', async (req, res) => {
   try {
-    const { ip, port, name } = req.body;
+    const { ip, port, name, deviceType } = req.body;
     if (!ip || !REGEX_IPV4.test(ip)) {
       return res.status(400).json({ error: 'Valid TV IP address required' });
     }
@@ -217,7 +217,7 @@ app.post('/api/devices/switch', async (req, res) => {
         apiLevel: devInfo.apiLevel,
         screenResolution: devInfo.screenResolution,
         displaySpecs: devInfo.displaySpecs,
-        deviceType
+        deviceType: deviceType || ''
       });
       saveConfig({ lastIp: ip, lastPort: targetPort });
       await telemetryService.collectTelemetry();

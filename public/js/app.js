@@ -1235,9 +1235,9 @@ async function startDiscoveryScan() {
   }
 }
 
-function pickDiscoveredDevice(ip, port = 5555, name = '') {
+function pickDiscoveredDevice(ip, port = 5555, name = '', deviceType = '') {
   closeDiscoverModal();
-  switchTv(ip, port, name);
+  switchTv(ip, port, name, deviceType);
 }
 
 // --- Bloatware Hunter Modal ---

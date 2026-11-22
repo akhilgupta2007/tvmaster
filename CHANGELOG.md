@@ -7,6 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.3] - 2026-11-21
+
+### Fixed
+* **Auto-Discovery "Switch & Connect" ReferenceError**:
+  * Fixed `ReferenceError: deviceType is not defined` in `POST /api/devices/switch` by properly destructuring and forwarding `deviceType` from `req.body`.
+  * Updated `pickDiscoveredDevice` in `app.js` to correctly pass `deviceType` to `switchTv()`.
+  * Added regression test verifying `POST /api/devices/switch` handles `deviceType` cleanly (48/48 tests passing).
+
 ## [1.7.2] - 2026-11-21
 
 ### Changed

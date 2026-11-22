@@ -77,6 +77,17 @@ describe('TvMaster Device Management & Multi-TV Switching Tests', () => {
     }
   });
 
+  test('API: POST /api/devices/switch handles deviceType without ReferenceError', async () => {
+    // Attempt switch to an unreachable test IP: should fail with 400 Connection failed, NOT 500 ReferenceError
+    const res = await fetch(`${baseUrl}/api/devices/switch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ ip: '127.0.0.1', port: 5556, name: 'Test Device', deviceType: 'firestick' })
+    });
+    const data = await res.json();
+    assert.notStrictEqual(data.error, 'deviceType is not defined');
+  });
+
   test('DiscoveryService: extracts subnets from diverse candidate hints and interfaces', () => {
     const s1 = discoveryService.extractSubnet('10.0.0.131:3055');
     assert.strictEqual(s1, '10.0.0');
