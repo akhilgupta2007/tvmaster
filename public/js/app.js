@@ -149,9 +149,13 @@ function updateTelemetryUI(data) {
   if (!data) return;
 
   // Auto-synchronize connection status when receiving live telemetry
+  const activeIp = data.deviceIp || (data.device && data.device.ip) || (devIp && devIp.textContent !== '-' ? devIp.textContent.replace(':5555', '') : '');
   if (!isConnected) {
-    const activeIp = data.deviceIp || (data.device && data.device.ip) || (devIp && devIp.textContent !== '-' ? devIp.textContent.replace(':5555', '') : '');
     setConnectedState(true, activeIp, data.device);
+  } else if (activeIp && devIp && devIp.textContent !== `${activeIp}:5555`) {
+    devIp.textContent = `${activeIp}:5555`;
+    if (inputIp) inputIp.value = activeIp;
+    renderTvCards(savedTvDevices, activeIp);
   }
 
   // Device Info
@@ -815,12 +819,48 @@ async function uploadAndInstallApk() {
   }
 }
 
+// Clear previous device metrics immediately so old numbers/processes don't linger
+function clearMetricsForSwitch(ip, name = '') {
+  const label = name ? `${name} (${ip})` : ip;
+  if (ramBadge) ramBadge.textContent = 'Switching...';
+  if (ramPercent) ramPercent.textContent = '--%';
+  if (barRamActive) barRamActive.style.width = '0%';
+  if (barRamKernel) barRamKernel.style.width = '0%';
+  if (barRamCached) barRamCached.style.width = '0%';
+  if (ramActiveVal) ramActiveVal.textContent = '-';
+  if (ramKernelVal) ramKernelVal.textContent = '-';
+  if (ramCachedVal) ramCachedVal.textContent = '-';
+  if (ramFreeVal) ramFreeVal.textContent = '-';
+
+  if (cpuPercent) cpuPercent.textContent = '--%';
+  if (barCpu) barCpu.style.width = '0%';
+  if (cpuCoresContainer) {
+    cpuCoresContainer.innerHTML = `<div class="col-span-full text-center text-slate-500 text-xs py-2">Switching to ${escapeHtml(label)}...</div>`;
+  }
+
+  if (storageBadge) storageBadge.textContent = 'Switching...';
+  if (storagePercent) storagePercent.textContent = '--%';
+  if (barStorage) barStorage.style.width = '0%';
+  if (storageFree) storageFree.textContent = '-';
+  if (storageUsedVal) storageUsedVal.textContent = '-';
+  if (storageTotalVal) storageTotalVal.textContent = '-';
+
+  currentProcesses = [];
+  if (processTableBody) {
+    processTableBody.innerHTML = `<tr><td colspan="7" class="py-8 text-center text-slate-400">Loading running tasks for <span class="font-bold text-white">${escapeHtml(label)}</span>...</td></tr>`;
+  }
+  if (memAccountingPill) {
+    memAccountingPill.innerHTML = `Switching device to <b class="text-blue-400">${escapeHtml(label)}</b>...`;
+  }
+}
+
 // --- Connection Toggle ---
 async function toggleConnect(isAuto = false) {
   if (isConnected) {
     try {
       await fetch('/api/disconnect', { method: 'POST' });
       setConnectedState(false);
+      clearMetricsForSwitch('Disconnected');
     } catch (e) {}
   } else {
     const ip = inputIp.value.trim();
@@ -832,6 +872,7 @@ async function toggleConnect(isAuto = false) {
 
     btnConnect.disabled = true;
     btnConnect.textContent = 'Connecting...';
+    clearMetricsForSwitch(ip);
 
     try {
       const res = await fetch('/api/connect', {
@@ -842,8 +883,12 @@ async function toggleConnect(isAuto = false) {
       const data = await res.json();
       if (data.success) {
         localStorage.setItem('tvmaster_last_ip', ip);
-        setConnectedState(true, ip, data.deviceInfo);
+        setConnectedState(true, ip, data.deviceInfo || data.activeDevice);
+        if (data.telemetry) {
+          updateTelemetryUI(data.telemetry);
+        }
         fetchPackagesList();
+        fetchDevicesList();
         if (ws && ws.readyState === WebSocket.OPEN) {
           ws.send(JSON.stringify({ type: 'refresh_now' }));
         }
@@ -1079,6 +1124,9 @@ async function switchTv(ip, port = 5555, name = '', deviceType = '') {
   btnConnect.disabled = true;
   btnConnect.textContent = 'Switching...';
 
+  // Immediately clear previous device metrics so old numbers/processes don't linger
+  clearMetricsForSwitch(ip, name);
+
   try {
     const res = await fetch('/api/devices/switch', {
       method: 'POST',
@@ -1089,6 +1137,9 @@ async function switchTv(ip, port = 5555, name = '', deviceType = '') {
     if (data.success) {
       localStorage.setItem('tvmaster_last_ip', ip);
       setConnectedState(true, ip, data.deviceInfo || data.activeDevice);
+      if (data.telemetry) {
+        updateTelemetryUI(data.telemetry);
+      }
       fetchPackagesList();
       fetchDevicesList();
       if (ws && ws.readyState === WebSocket.OPEN) {

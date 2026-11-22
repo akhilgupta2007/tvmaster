@@ -498,6 +498,13 @@ function createMcpServer() {
     },
     async ({ ip, port }) => {
       try {
+        if (adbService.connected) {
+          try {
+            await adbService.disconnect();
+          } catch (e) {}
+        }
+        telemetryService.reset();
+
         const result = await adbService.connect(ip, port);
         const classification = deviceService.addOrUpdateDevice({
           ip,
@@ -506,6 +513,10 @@ function createMcpServer() {
           model: result.deviceInfo?.model || '',
           manufacturer: result.deviceInfo?.manufacturer || ''
         });
+        const freshTelemetry = await telemetryService.collectTelemetry();
+        if (freshTelemetry) {
+          telemetryService.broadcast(freshTelemetry);
+        }
         return {
           content: [
             {
@@ -515,7 +526,8 @@ function createMcpServer() {
                   success: true,
                   message: `Switched connection to ${ip}:${port}`,
                   deviceInfo: result.deviceInfo,
-                  classification
+                  classification,
+                  telemetry: freshTelemetry
                 },
                 null,
                 2

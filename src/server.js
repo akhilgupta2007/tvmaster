@@ -108,12 +108,19 @@ app.get('/api/status', (req, res) => {
 app.post('/api/connect', async (req, res) => {
   try {
     const { ip, port, name, deviceType } = req.body;
+    if (adbService.connected && (adbService.deviceIp !== ip || adbService.devicePort !== (port || 5555))) {
+      try {
+        await adbService.disconnect();
+      } catch (e) {}
+    }
+    telemetryService.reset();
+
     const result = await adbService.connect(ip, port);
     saveConfig({ lastIp: ip, lastPort: port || 5555 });
     
     // Automatically save or update device profile in cards
     const devInfo = adbService.deviceInfo || {};
-    deviceService.addOrUpdateDevice({
+    const saved = deviceService.addOrUpdateDevice({
       ip,
       port: port || 5555,
       name,
@@ -126,9 +133,17 @@ app.post('/api/connect', async (req, res) => {
       deviceType
     });
 
-    // Request immediate telemetry update
-    await telemetryService.collectTelemetry();
-    res.json({ ...result, devices: deviceService.getDevices(ip) });
+    // Request immediate telemetry update & broadcast to subscribers
+    const freshTelemetry = await telemetryService.collectTelemetry();
+    if (freshTelemetry) {
+      telemetryService.broadcast(freshTelemetry);
+    }
+    res.json({
+      ...result,
+      activeDevice: saved,
+      devices: deviceService.getDevices(ip),
+      telemetry: freshTelemetry
+    });
   } catch (err) {
     res.status(400).json({ error: err.message });
   }
@@ -137,6 +152,7 @@ app.post('/api/connect', async (req, res) => {
 // Disconnect from TV
 app.post('/api/disconnect', async (req, res) => {
   try {
+    telemetryService.reset();
     const result = await adbService.disconnect();
     res.json(result);
   } catch (err) {
@@ -196,12 +212,13 @@ app.post('/api/devices/switch', async (req, res) => {
     }
     const targetPort = port ? parseInt(port, 10) : 5555;
 
-    // Disconnect currently active device if any
+    // Disconnect currently active device if any & reset telemetry baseline
     if (adbService.connected) {
       try {
         await adbService.disconnect();
       } catch (e) {}
     }
+    telemetryService.reset();
 
     // Connect to target device
     const connectRes = await adbService.connect(ip, targetPort);
@@ -220,12 +237,17 @@ app.post('/api/devices/switch', async (req, res) => {
         deviceType: deviceType || ''
       });
       saveConfig({ lastIp: ip, lastPort: targetPort });
-      await telemetryService.collectTelemetry();
+      const freshTelemetry = await telemetryService.collectTelemetry();
+      if (freshTelemetry) {
+        telemetryService.broadcast(freshTelemetry);
+      }
       return res.json({
         success: true,
         message: `Switched to ${saved.name}`,
         activeDevice: saved,
-        devices: deviceService.getDevices(ip)
+        devices: deviceService.getDevices(ip),
+        deviceInfo: adbService.deviceInfo,
+        telemetry: freshTelemetry
       });
     } else {
       return res.status(400).json({ error: connectRes.error || 'Connection failed' });

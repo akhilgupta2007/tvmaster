@@ -87,7 +87,19 @@ class AdbService {
     }
     this.connected = false;
     this.deviceIp = null;
+    this.devicePort = DEFAULT_ADB_PORT;
     this.displaySpecs = null;
+    this.deviceInfo = {
+      model: 'Unknown Device',
+      manufacturer: 'Unknown',
+      androidVersion: 'Unknown',
+      apiLevel: 0,
+      screenResolution: 'Unknown',
+      cpuAbi: 'Unknown',
+      cpuArch: 'ARM',
+      socModel: '',
+      displaySpecs: null
+    };
     return { success: true, message: 'Disconnected' };
   }
 
@@ -122,14 +134,29 @@ class AdbService {
    */
   async refreshDeviceInfo() {
     try {
-      const model = (await this.shell('getprop ro.product.model')).trim();
-      const manufacturer = (await this.shell('getprop ro.product.manufacturer')).trim();
-      const androidVersion = (await this.shell('getprop ro.build.version.release')).trim();
-      const apiLevel = parseInt((await this.shell('getprop ro.build.version.sdk')).trim(), 10) || 0;
-      const wmSize = (await this.shell('wm size')).trim(); // Physical size: 1920x1080
-      const cpuAbi = (await this.shell('getprop ro.product.cpu.abi')).trim() || 'arm64-v8a';
-      const socModel = (await this.shell('getprop ro.soc.model')).trim() || (await this.shell('getprop ro.hardware')).trim() || '';
-      const socManufacturer = (await this.shell('getprop ro.soc.manufacturer')).trim() || '';
+      // Execute batched single-hop query for fast atomic device identification
+      const rawProps = await this.shell(
+        'getprop ro.product.model; echo "===PROP==="; ' +
+        'getprop ro.product.manufacturer; echo "===PROP==="; ' +
+        'getprop ro.build.version.release; echo "===PROP==="; ' +
+        'getprop ro.build.version.sdk; echo "===PROP==="; ' +
+        '(wm size 2>/dev/null || echo "1920x1080"); echo "===PROP==="; ' +
+        'getprop ro.product.cpu.abi; echo "===PROP==="; ' +
+        'getprop ro.soc.model; echo "===PROP==="; ' +
+        '(getprop ro.hardware 2>/dev/null || true); echo "===PROP==="; ' +
+        'getprop ro.soc.manufacturer',
+        6000
+      );
+
+      const parts = rawProps.split('===PROP===').map((s) => s.trim());
+      const model = parts[0] || '';
+      const manufacturer = parts[1] || '';
+      const androidVersion = parts[2] || '';
+      const apiLevel = parseInt(parts[3] || '0', 10) || 0;
+      const wmSize = parts[4] || '1920x1080';
+      const cpuAbi = parts[5] || 'arm64-v8a';
+      const socModel = parts[6] || parts[7] || '';
+      const socManufacturer = parts[8] || '';
 
       let screenResolution = '1920x1080';
       const sizeMatch = wmSize.match(/(\d+x\d+)/);
@@ -150,7 +177,7 @@ class AdbService {
       const socDisplay = [socManufacturer, socModel].filter(Boolean).join(' ').trim();
 
       this.deviceInfo = {
-        model: model || 'Android TV',
+        model: model || 'Android Device',
         manufacturer: manufacturer || 'Generic',
         androidVersion: androidVersion || 'Unknown',
         apiLevel,
@@ -162,9 +189,23 @@ class AdbService {
       };
 
       // Query display specs once on connection (zero recurring load)
-      await this.getDisplaySpecs();
+      try {
+        await this.getDisplaySpecs();
+      } catch (err) {}
     } catch (e) {
-      // Keep existing info if command fails
+      if (!this.deviceInfo || this.deviceInfo.model === 'Unknown Device') {
+        this.deviceInfo = {
+          model: `Android Device (${this.deviceIp})`,
+          manufacturer: 'Generic',
+          androidVersion: 'Unknown',
+          apiLevel: 0,
+          screenResolution: '1920x1080',
+          cpuAbi: 'arm64-v8a',
+          cpuArch: 'ARM',
+          socModel: '',
+          displaySpecs: null
+        };
+      }
     }
   }
 

@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.4] - 2026-11-22
+
+### Fixed
+* **Multi-Device Switching & Live Telemetry Synchronization**:
+  * Fixed bug where switching to a second connected streaming device or TV continued displaying the first device's RAM, CPU, storage, and processes.
+  * **Telemetry Baseline Reset**: Added `telemetryService.reset()` on disconnect/switch to clear previous CPU/core tick deltas and stale cached snapshots so telemetry calculations start completely fresh.
+  * **Resilient Telemetry Fallbacks**: Replaced strict chained shell execution in `collectTelemetry()` with resilient fallback subshells: `(df -k /data || df -k /sdcard || true)` and `(top -b -n 1 -m 20 || top -b -n 1 || top -n 1 || true)`. Prevents toybox flag differences or `/data` permission boundaries on different Android/FireOS builds from aborting telemetry.
+  * **Network Timeout Resilience**: Increased telemetry batch timeout from 4s to 8s to reliably accommodate low-power streaming sticks and Wi-Fi latency.
+  * **Immediate Push & Return**: `POST /api/devices/switch` and `POST /api/connect` now immediately broadcast fresh telemetry to all WebSocket subscribers and return fresh telemetry in the API response for zero-delay UI rendering.
+  * **Instant Frontend Reset**: Added `clearMetricsForSwitch()` in `app.js` to immediately clear prior metrics and show active device loading placeholders during switching.
+  * **Device Info Cleanup**: `AdbService.disconnect()` now resets cached `deviceInfo` and `displaySpecs` so metadata from prior devices never leaks.
+  * Added 2 new unit tests covering disconnect state cleanup and telemetry reset/broadcast (50/50 tests passing).
+
 ## [1.7.3] - 2026-11-21
 
 ### Fixed

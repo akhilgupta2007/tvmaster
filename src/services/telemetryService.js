@@ -337,6 +337,30 @@ class TelemetryService {
   }
 
   /**
+   * Reset tick baselines and clear stale telemetry on device disconnect or switch
+   */
+  reset() {
+    this.prevCpuTicks = null;
+    this.prevCoreTicks = null;
+    this.lastTelemetry = null;
+  }
+
+  /**
+   * Broadcast telemetry snapshot to all active WebSocket clients immediately
+   */
+  broadcast(data) {
+    if (!data) return;
+    const payload = JSON.stringify({ type: 'telemetry', data });
+    for (const client of this.subscribers) {
+      if (client.readyState === 1) { // OPEN
+        try {
+          client.send(payload);
+        } catch (e) {}
+      }
+    }
+  }
+
+  /**
    * Fetch one-shot combined telemetry snapshot from TV via single ADB batch
    */
   async collectTelemetry() {
@@ -345,10 +369,12 @@ class TelemetryService {
     }
 
     try {
-      // Execute fast batch command via ADB in one single network hop
+      // Execute fast batch command via ADB in one single network hop with resilient fallback commands
       const raw = await adbService.shell(
-        'cat /proc/meminfo; echo "===CPU==="; cat /proc/stat; echo "===LOAD==="; cat /proc/loadavg; echo "===STORAGE==="; df -k /data; echo "===TOP==="; top -b -n 1 -m 20',
-        4000
+        'cat /proc/meminfo; echo "===CPU==="; cat /proc/stat; echo "===LOAD==="; cat /proc/loadavg; echo "===STORAGE==="; ' +
+        '(df -k /data 2>/dev/null || df -k /sdcard 2>/dev/null || df -k 2>/dev/null || true); echo "===TOP==="; ' +
+        '(top -b -n 1 -m 20 2>/dev/null || top -b -n 1 2>/dev/null || top -n 1 2>/dev/null || true)',
+        8000
       );
 
       const parts = raw.split('===CPU===');
@@ -375,7 +401,12 @@ class TelemetryService {
 
       this.lastTelemetry = {
         timestamp: Date.now(),
-        device: adbService.deviceInfo,
+        deviceIp: adbService.deviceIp,
+        devicePort: adbService.devicePort,
+        device: {
+          ...adbService.deviceInfo,
+          ip: adbService.deviceIp
+        },
         memory,
         cpu: {
           percent: cpu.cpuPercent,
@@ -431,12 +462,7 @@ class TelemetryService {
       if (this.subscribers.size === 0 || !adbService.connected) return;
       const data = await this.collectTelemetry();
       if (data) {
-        const payload = JSON.stringify({ type: 'telemetry', data });
-        for (const client of this.subscribers) {
-          if (client.readyState === 1) { // OPEN
-            client.send(payload);
-          }
-        }
+        this.broadcast(data);
       }
     }, this.pollIntervalMs);
   }

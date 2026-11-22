@@ -140,4 +140,43 @@ describe('TvMaster Device Management & Multi-TV Switching Tests', () => {
     assert.ok(active);
     assert.strictEqual(active.isActive, true);
   });
+
+  test('AdbService: disconnect clears deviceIp and resets deviceInfo to clean defaults', async () => {
+    const adb = require('../src/services/adbService');
+    adb.connected = true;
+    adb.deviceIp = '10.0.0.13';
+    adb.deviceInfo = { model: 'Old Model', manufacturer: 'Old Brand' };
+
+    await adb.disconnect();
+    assert.strictEqual(adb.connected, false);
+    assert.strictEqual(adb.deviceIp, null);
+    assert.strictEqual(adb.deviceInfo.model, 'Unknown Device');
+    assert.strictEqual(adb.deviceInfo.manufacturer, 'Unknown');
+  });
+
+  test('TelemetryService: reset and broadcast handle switching gracefully', () => {
+    const telemetry = require('../src/services/telemetryService');
+    telemetry.prevCpuTicks = { total: 100, active: 50 };
+    telemetry.prevCoreTicks = { cpu0: { total: 50, active: 25 } };
+    telemetry.lastTelemetry = { timestamp: Date.now() };
+
+    telemetry.reset();
+    assert.strictEqual(telemetry.prevCpuTicks, null);
+    assert.strictEqual(telemetry.prevCoreTicks, null);
+    assert.strictEqual(telemetry.lastTelemetry, null);
+
+    // Broadcast with dummy ws client
+    let received = null;
+    const mockWs = {
+      readyState: 1,
+      send: (str) => { received = JSON.parse(str); }
+    };
+    telemetry.subscribers.add(mockWs);
+    telemetry.broadcast({ test: true, deviceIp: '10.0.0.14' });
+    telemetry.subscribers.delete(mockWs);
+
+    assert.ok(received);
+    assert.strictEqual(received.type, 'telemetry');
+    assert.strictEqual(received.data.deviceIp, '10.0.0.14');
+  });
 });
