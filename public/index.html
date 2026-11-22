@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>TvMaster v1.4.1 - Android TV Task Manager & Resource Monitor</title>
+  <title>TvMaster - Android TV & Streaming Device Task Manager</title>
   <link rel="icon" type="image/svg+xml" href="/favicon.svg">
   <script src="https://www.gstatic.com/antigravity/web/dev/tailwindcss.min.js"></script>
   <link rel="stylesheet" href="/css/styles.css">
@@ -31,7 +31,7 @@
               <span>TvMaster</span>
             </h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.7.0</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.7.1</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -344,7 +344,7 @@
 
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
-    <div>TvMaster v1.4.1 • Lightweight Zero-Overhead Android TV Task Manager</div>
+    <div>TvMaster v1.7.1 • Lightweight Zero-Overhead Android TV Task Manager</div>
     <div>Self-hosted Docker Hub Edition</div>
   </footer>
 
@@ -354,9 +354,12 @@
   <div id="modal-install" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
     <div class="bg-slate-900 border border-slate-800 rounded-3xl p-6 max-w-md w-full shadow-2xl space-y-5">
       <div class="flex items-center justify-between border-b border-slate-800 pb-3">
-        <h3 class="font-bold text-white text-base flex items-center gap-2">
-          <span>📦 Wireless APK Sideload & Install</span>
-        </h3>
+        <div>
+          <h3 class="font-bold text-white text-base flex items-center gap-2">
+            <span>📦 Wireless APK Sideload & Install</span>
+          </h3>
+          <p id="install-target-tv" class="text-xs text-slate-400 font-mono mt-0.5"></p>
+        </div>
         <button onclick="closeInstallModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
       </div>
 

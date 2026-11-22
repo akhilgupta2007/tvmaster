@@ -384,12 +384,24 @@ class AdbService {
 
     const target = `${this.deviceIp}:${this.devicePort}`;
     try {
-      const { stdout, stderr } = await execFileAsync(
-        'adb',
-        ['-s', target, 'install', '-r', '-g', apkFilePath],
-        { timeout: 120000 } // Allow 2 mins for large APKs
-      );
-      const output = (stdout + ' ' + stderr).trim();
+      let output = '';
+      try {
+        const { stdout, stderr } = await execFileAsync(
+          'adb',
+          ['-s', target, 'install', '-r', '-g', apkFilePath],
+          { timeout: 180000 } // Allow 3 mins for large APKs
+        );
+        output = (stdout + ' ' + stderr).trim();
+      } catch (errWithG) {
+        // Fallback without -g in case device OS does not support grant-permissions flag
+        const { stdout, stderr } = await execFileAsync(
+          'adb',
+          ['-s', target, 'install', '-r', apkFilePath],
+          { timeout: 180000 }
+        );
+        output = (stdout + ' ' + stderr).trim();
+      }
+
       if (output.includes('Success')) {
         return { success: true, message: 'APK installed successfully!' };
       } else {

@@ -8,6 +8,7 @@ const express = require('express');
 const http = require('http');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const cors = require('cors');
 const multer = require('multer');
 const { WebSocketServer } = require('ws');
@@ -33,8 +34,22 @@ function saveConfig(data) {
 }
 
 // Configure temporary upload storage for APK installation
+const uploadDir = path.join(os.tmpdir(), 'tvmaster-uploads');
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => {
+    cb(null, uploadDir);
+  },
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname) || '.apk';
+    const safeName = `tvmaster-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
+    cb(null, safeName);
+  }
+});
 const upload = multer({
-  dest: '/tmp/tvmaster-uploads/',
+  storage,
   limits: { fileSize: 500 * 1024 * 1024 } // Support up to 500MB APKs
 });
 

@@ -148,6 +148,12 @@ function initWebSocket() {
 function updateTelemetryUI(data) {
   if (!data) return;
 
+  // Auto-synchronize connection status when receiving live telemetry
+  if (!isConnected) {
+    const activeIp = data.deviceIp || (data.device && data.device.ip) || (devIp && devIp.textContent !== '-' ? devIp.textContent.replace(':5555', '') : '');
+    setConnectedState(true, activeIp, data.device);
+  }
+
   // Device Info
   if (data.device) {
     devModel.textContent = data.device.model || 'Android TV';
@@ -701,9 +707,34 @@ function handleFileSelected(files) {
   document.getElementById('btn-submit-install').disabled = false;
 }
 
-function openInstallModal() {
-  if (!isConnected) return alert('Connect to Android TV first');
-  document.getElementById('modal-install').classList.remove('hidden');
+// Auto-heal connection status check
+async function ensureConnected() {
+  if (isConnected) return true;
+  try {
+    const res = await fetch('/api/status');
+    const data = await res.json();
+    if (data.connected) {
+      setConnectedState(true, data.deviceIp, data.deviceInfo);
+      return true;
+    }
+  } catch (e) {}
+  return false;
+}
+
+async function openInstallModal() {
+  const connected = await ensureConnected();
+  if (!connected) {
+    alert('Please connect to your Android TV first');
+    return;
+  }
+  const modal = document.getElementById('modal-install');
+  if (modal) {
+    modal.classList.remove('hidden');
+    const targetLabel = document.getElementById('install-target-tv');
+    if (targetLabel) {
+      targetLabel.textContent = `Target: ${devModel.textContent || 'Android TV'} (${devIp.textContent || ''})`;
+    }
+  }
 }
 
 function closeInstallModal() {
@@ -717,6 +748,12 @@ function closeInstallModal() {
 
 async function uploadAndInstallApk() {
   if (!selectedApkFile) return;
+
+  const connected = await ensureConnected();
+  if (!connected) {
+    alert('Please connect to your Android TV first before installing an APK');
+    return;
+  }
 
   const btn = document.getElementById('btn-submit-install');
   btn.disabled = true;
@@ -867,7 +904,7 @@ function setConnectedState(connected, ip = '', info = null) {
 
 // --- Speed Up / Tuning Actions ---
 async function setSpeedAnimations(scale) {
-  if (!isConnected) return alert('Connect to Android TV first');
+  if (!await ensureConnected()) return alert('Please connect to your Android TV first');
   try {
     const res = await fetch('/api/tuning/animation-scale', {
       method: 'POST',
@@ -886,7 +923,7 @@ async function setSpeedAnimations(scale) {
 }
 
 async function flushRam() {
-  if (!isConnected) return alert('Connect to Android TV first');
+  if (!await ensureConnected()) return alert('Please connect to your Android TV first');
   try {
     const res = await fetch('/api/process/flush-ram', { method: 'POST' });
     const data = await res.json();
@@ -1205,7 +1242,7 @@ function pickDiscoveredDevice(ip, port = 5555, name = '') {
 
 // --- Bloatware Hunter Modal ---
 async function openDebloatModal() {
-  if (!isConnected) return alert('Connect to Android TV first');
+  if (!await ensureConnected()) return alert('Please connect to your Android TV first');
   const modal = document.getElementById('modal-debloat');
   const listEl = document.getElementById('debloat-list');
   modal.classList.remove('hidden');
@@ -1276,7 +1313,7 @@ function closeRemoteModal() {
 }
 
 async function sendRemoteKey(key) {
-  if (!isConnected) return alert('Connect to Android TV first');
+  if (!await ensureConnected()) return alert('Please connect to your Android TV first');
   try {
     await fetch('/api/remote/key', {
       method: 'POST',
@@ -1287,7 +1324,7 @@ async function sendRemoteKey(key) {
 }
 
 async function sendRemoteText() {
-  if (!isConnected) return alert('Connect to Android TV first');
+  if (!await ensureConnected()) return alert('Please connect to your Android TV first');
   const input = document.getElementById('remote-text-input');
   const text = input.value.trim();
   if (!text) return;
@@ -1311,8 +1348,8 @@ async function sendRemoteText() {
 let rebootPollInterval = null;
 let rebootCountdownInterval = null;
 
-function openRebootModal() {
-  if (!isConnected) {
+async function openRebootModal() {
+  if (!await ensureConnected()) {
     alert('Please connect to your Android TV first');
     return;
   }

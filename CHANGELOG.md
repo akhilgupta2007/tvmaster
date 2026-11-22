@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.1] - 2026-11-21
+
+### Fixed
+* **APK Sideload & Modal Connection Synchronization**:
+  * Resolved client-side race condition causing Sideload APK modal to throw false *"Connect to Android TV first"* alert when the backend is already connected.
+  * Implemented `ensureConnected()` auto-healing verification that queries `/api/status` before executing any management action.
+  * Automatically synchronizes `isConnected = true` in `updateTelemetryUI` whenever live WebSocket telemetry is received.
+  * Added active target device indicator (`Target TV: Model (IP)`) directly inside the APK Sideload modal.
+  * Multi-platform temporary storage with `os.tmpdir()` and enforced `.apk` extension on multer upload stream to guarantee compatibility with `adb install`.
+  * Added fallback in `adbService.installApk` without `-g` in case device Android OS version rejects grant-permissions flag.
+  * Fixed outdated `v1.4.1` strings in HTML title and footer.
+
 ## [1.7.0] - 2026-11-21
 
 ### Added
