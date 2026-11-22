@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.7.0] - 2026-11-21
+
+### Added
+* **Dedicated Installed Applications Manager & 1-Click Uninstaller**:
+  * **Complete App Inventory**: Inspects all user-installed streaming apps, media centers, and games (`pm list packages -3`) whether actively running in RAM or dormant/closed.
+  * **Human-Friendly App Resolver**: Maps raw Android package names to official titles (e.g. `Netflix`, `Kodi`, `Plex`, `SmartTube`, `Stremio`, `Projectivy Launcher`) using `appLabelService`.
+  * **1-Click Uninstall & Storage Recovery**: Users can completely uninstall any installed app directly from the web dashboard with a confirmation prompt (`pm uninstall`), instantly freeing up TV internal flash storage.
+  * **App Cache & Storage Cleaner**: Added 1-click **Clear Data** (`pm clear`) to purge bloated app caches without uninstalling.
+  * **Remote App Launcher**: 1-click **Launch** (`monkey -p`) to start any installed application directly on the TV screen.
+  * **Real-time App Status Badges**: Displays whether each app is actively running (`🟢 Running`) or closed (`⚪ Idle`).
+  * **Interactive Search & Toolbar Counter**: Live search filtering by app name/package and real-time app count badge (`#installed-apps-badge`) on the action toolbar.
+  * **MCP Tool Expansion**: Added `tv_list_installed_apps` tool to the Model Context Protocol server.
+  * Extended automated tests to **47/47 passing tests**.
+
 ## [1.6.0] - 2026-11-21
 
 ### Added

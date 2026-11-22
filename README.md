@@ -4,11 +4,11 @@
 
 <img src="./public/assets/logo.svg" alt="TvMaster Logo" width="96" height="96" />
 
-![Version](https://img.shields.io/badge/version-1.6.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.7.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Devices](https://img.shields.io/badge/Devices-Android%20TV%20%7C%20Fire%20TV%20%7C%20Shield%20%7C%20Chromecast-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)
-![Tests](https://img.shields.io/badge/tests-45%2F45%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-47%2F47%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Zero-Overhead Android TV, Fire TV & Streaming Device Resource Monitor, Task Manager & Debloat Hub for Docker & Home Servers**
@@ -33,6 +33,15 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
 
 ## ✨ Features
 
+* **📱 Dedicated Installed Applications Manager:**
+  * Full inventory of all 3rd-party streaming apps and games installed on the TV (whether currently running in RAM or closed/dormant).
+  * Automatically resolves readable titles and avatars (Netflix, Kodi, SmartTube, Plex, Prime Video, Stremio, etc.).
+  * Real-time running indicators (`🟢 Running` vs `⚪ Idle`).
+  * 1-Click Storage Management:
+    * 🗑️ **Uninstall**: Safely remove unused apps to immediately recover internal storage space.
+    * 🧹 **Clear Data**: Wipe app cache and reset storage without uninstallation.
+    * ▶️ **Launch**: Open any app directly on the TV.
+  * Instant search filter by app name or package ID.
 * **⚡ Real-Time Resource Gauges:**
   * **RAM Breakdown:** Visual segmented bar showing Active Apps, Cached Memory, and Free Memory.
   * **CPU Architecture & Per-Core Utilization (Zero TV Overhead):**
@@ -230,6 +239,7 @@ Add this entry to your MCP configuration file (e.g. `claude_desktop_config.json`
 | `tv_launch_package` | Opens an app on the TV (`monkey -p`) |
 | `tv_clear_app_data` | Clears app cache and data (`pm clear`) |
 | `tv_uninstall_package` | Uninstalls an app package from the TV (`pm uninstall`) |
+| `tv_list_installed_apps` | Lists all user-installed applications with resolved titles and package IDs |
 
 ---
 

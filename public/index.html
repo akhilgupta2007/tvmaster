@@ -31,7 +31,7 @@
               <span>TvMaster</span>
             </h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.6.0</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.7.0</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -227,6 +227,11 @@
 
       <!-- TV Control Tools Group -->
       <div class="flex items-center gap-2">
+        <button onclick="openAppsModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600/20 hover:bg-emerald-600 text-emerald-300 hover:text-white rounded-xl border border-emerald-500/30 transition shadow-sm flex items-center gap-1.5" title="Manage & Uninstall Installed Applications">
+          <span>📱</span>
+          <span>Installed Apps</span>
+          <span id="installed-apps-badge" class="px-1.5 py-0.5 bg-emerald-500/30 text-emerald-300 text-[10px] rounded-full font-mono">--</span>
+        </button>
         <button onclick="openInstallModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md glow-emerald transition flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           Sideload APK
@@ -478,6 +483,49 @@
       <div class="flex justify-end gap-2 pt-2 border-t border-slate-800">
         <button onclick="submitRenameTv()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow glow-blue">Save Name</button>
         <button onclick="closeRenameTvModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-semibold">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Installed Apps Manager Modal -->
+  <div id="modal-installed-apps" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-6 max-w-2xl w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-xl bg-emerald-500/20 border border-emerald-500/30 flex items-center justify-center text-emerald-400 font-bold text-base">
+            📱
+          </div>
+          <div>
+            <h3 class="font-bold text-white text-base flex items-center gap-2">
+              <span>Installed Apps Manager</span>
+              <span id="apps-modal-count-badge" class="text-xs px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 font-mono">0 Apps</span>
+            </h3>
+            <p class="text-xs text-slate-400">Launch, manage storage, clear cache, or uninstall applications on your TV</p>
+          </div>
+        </div>
+        <button onclick="closeAppsModal()" class="text-slate-400 hover:text-white text-lg font-bold">&times;</button>
+      </div>
+
+      <!-- Search & Filter Bar -->
+      <div class="flex items-center gap-2">
+        <div class="relative flex-1">
+          <input id="apps-search-input" type="text" oninput="filterInstalledApps()" placeholder="Search installed apps by name or package..." class="w-full bg-slate-950 border border-slate-800 rounded-xl pl-9 pr-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-emerald-500">
+          <svg class="w-4 h-4 text-slate-500 absolute left-3 top-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        </div>
+        <button onclick="loadInstalledApps(true)" class="px-3 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white text-xs font-semibold rounded-xl transition flex items-center gap-1.5" title="Refresh installed apps">
+          <span>↻</span>
+          <span>Refresh</span>
+        </button>
+      </div>
+
+      <!-- Apps List / Grid -->
+      <div id="installed-apps-list" class="space-y-2 max-h-[60vh] overflow-y-auto pr-1">
+        <div class="text-center py-10 text-slate-500">Loading installed apps from TV...</div>
+      </div>
+
+      <div class="flex justify-between items-center pt-2 border-t border-slate-800 text-xs text-slate-400">
+        <span>💡 Uninstalled apps immediately free up internal TV storage</span>
+        <button onclick="closeAppsModal()" class="px-4 py-2 bg-slate-800 text-slate-300 rounded-xl font-semibold hover:bg-slate-700">Close</button>
       </div>
     </div>
   </div>

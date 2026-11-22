@@ -105,6 +105,11 @@ async function fetchPackagesList() {
     const data = await res.json();
     if (data.userPackages) {
       userInstalledPackages = new Set(data.userPackages);
+      const toolbarBadge = document.getElementById('installed-apps-badge');
+      if (toolbarBadge) toolbarBadge.textContent = `${data.userPackages.length}`;
+    }
+    if (data.installedApps) {
+      allInstalledApps = data.installedApps;
     }
     if (data.disabledPackages) {
       disabledPackages = new Set(data.disabledPackages);
@@ -504,7 +509,7 @@ async function clearAppData(pkg, name) {
 
 // Uninstall App
 async function uninstallApp(pkg, name) {
-  if (!confirm(`Are you sure you want to completely UNINSTALL ${name} from your Android TV?`)) return;
+  if (!confirm(`Are you sure you want to completely UNINSTALL ${name} from your Android TV? This will free up internal storage.`)) return;
 
   try {
     const res = await fetch('/api/package/uninstall', {
@@ -516,14 +521,142 @@ async function uninstallApp(pkg, name) {
     if (data.success) {
       alert(`Successfully uninstalled ${name}!`);
       userInstalledPackages.delete(pkg);
+      allInstalledApps = allInstalledApps.filter((a) => a.package !== pkg);
       requestManualSnapshot();
       fetchPackagesList();
+      renderInstalledAppsList(allInstalledApps);
+      const toolbarBadge = document.getElementById('installed-apps-badge');
+      const countBadge = document.getElementById('apps-modal-count-badge');
+      if (toolbarBadge) toolbarBadge.textContent = `${allInstalledApps.length}`;
+      if (countBadge) countBadge.textContent = `${allInstalledApps.length} Apps`;
     } else {
       alert(`Uninstall failed: ${data.error}`);
     }
   } catch (err) {
     alert(`Error: ${err.message}`);
   }
+}
+
+// --- Installed Apps Manager Modal ---
+let allInstalledApps = [];
+
+async function openAppsModal() {
+  const modal = document.getElementById('modal-installed-apps');
+  if (modal) {
+    modal.classList.remove('hidden');
+    loadInstalledApps();
+  }
+}
+
+function closeAppsModal() {
+  const modal = document.getElementById('modal-installed-apps');
+  if (modal) {
+    modal.classList.add('hidden');
+  }
+}
+
+async function loadInstalledApps(force = false) {
+  const listEl = document.getElementById('installed-apps-list');
+  const countBadge = document.getElementById('apps-modal-count-badge');
+  const toolbarBadge = document.getElementById('installed-apps-badge');
+  if (!listEl) return;
+
+  if (force || allInstalledApps.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-8 text-slate-500 flex items-center justify-center gap-2"><svg class="animate-spin w-4 h-4 text-emerald-400" viewBox="0 0 24 24" fill="none"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8H4z"></path></svg> Loading installed applications from TV...</div>';
+    try {
+      const res = await fetch('/api/packages');
+      const data = await res.json();
+      if (data.installedApps) {
+        allInstalledApps = data.installedApps;
+      } else if (data.userPackages) {
+        allInstalledApps = data.userPackages.map((pkg) => ({
+          package: pkg,
+          name: pkg,
+          isDisabled: false
+        }));
+      }
+      if (data.userPackages) {
+        userInstalledPackages = new Set(data.userPackages);
+      }
+    } catch (e) {
+      listEl.innerHTML = '<div class="text-center py-6 text-red-400">Failed to load installed applications from TV.</div>';
+      return;
+    }
+  }
+
+  if (toolbarBadge) toolbarBadge.textContent = `${allInstalledApps.length}`;
+  if (countBadge) countBadge.textContent = `${allInstalledApps.length} Apps`;
+
+  renderInstalledAppsList(allInstalledApps);
+}
+
+function filterInstalledApps() {
+  const input = document.getElementById('apps-search-input');
+  const query = (input ? input.value : '').toLowerCase().trim();
+  if (!query) {
+    renderInstalledAppsList(allInstalledApps);
+    return;
+  }
+
+  const filtered = allInstalledApps.filter(
+    (app) => (app.name && app.name.toLowerCase().includes(query)) ||
+             (app.package && app.package.toLowerCase().includes(query))
+  );
+  renderInstalledAppsList(filtered);
+}
+
+function renderInstalledAppsList(apps) {
+  const listEl = document.getElementById('installed-apps-list');
+  if (!listEl) return;
+
+  if (!apps || apps.length === 0) {
+    listEl.innerHTML = '<div class="text-center py-8 text-slate-500">No applications match your search.</div>';
+    return;
+  }
+
+  // Check currently running packages in memory
+  const runningPackages = new Set((currentProcesses || []).map((p) => p.package));
+
+  listEl.innerHTML = apps.map((app) => {
+    const isRunning = runningPackages.has(app.package);
+    const initial = (app.name || app.package).charAt(0).toUpperCase();
+
+    const runningBadge = isRunning
+      ? '<span class="px-2 py-0.5 rounded text-[10px] bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30 flex items-center gap-1"><span class="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse"></span> Running</span>'
+      : '<span class="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-slate-400 font-semibold">Idle</span>';
+
+    return `
+      <div class="bg-slate-950/70 hover:bg-slate-950 border border-slate-800/80 hover:border-slate-700 rounded-xl p-3 flex items-center justify-between gap-3 transition">
+        <div class="flex items-center gap-3 min-w-0">
+          <div class="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-600/30 to-indigo-600/30 border border-blue-500/30 flex items-center justify-center text-sm font-bold text-white shrink-0">
+            ${escapeHtml(initial)}
+          </div>
+          <div class="min-w-0">
+            <div class="flex items-center gap-2">
+              <span class="text-sm font-bold text-white truncate">${escapeHtml(app.name)}</span>
+              ${runningBadge}
+            </div>
+            <div class="text-[11px] font-mono text-slate-400 truncate">${escapeHtml(app.package)}</div>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-1.5 shrink-0">
+          <button onclick="launchApp('${escapeHtml(app.package)}')" title="Launch App on TV" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-semibold rounded-lg transition flex items-center gap-1">
+            <span>▶</span>
+            <span class="hidden sm:inline">Launch</span>
+          </button>
+          <button onclick="clearAppData('${escapeHtml(app.package)}', '${escapeHtml(app.name)}')" title="Clear App Cache and Data" class="px-2.5 py-1.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-amber-300 text-xs font-semibold rounded-lg transition flex items-center gap-1">
+            <span>🧹</span>
+            <span class="hidden sm:inline">Clear</span>
+          </button>
+          <button onclick="uninstallApp('${escapeHtml(app.package)}', '${escapeHtml(app.name)}')" title="Uninstall from TV" class="px-2.5 py-1.5 bg-red-950/80 hover:bg-red-800 text-red-300 hover:text-white border border-red-700/80 text-xs font-bold rounded-lg transition flex items-center gap-1">
+            <span>🗑️</span>
+            <span>Uninstall</span>
+          </button>
+        </div>
+      </div>
+    `;
+  }).join('');
 }
 
 // --- Drag & Drop APK Sideload & Installation ---

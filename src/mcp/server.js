@@ -13,6 +13,7 @@ const adbService = require('../services/adbService');
 const telemetryService = require('../services/telemetryService');
 const discoveryService = require('../services/discoveryService');
 const deviceService = require('../services/deviceService');
+const appLabelService = require('../services/appLabelService');
 
 function createMcpServer() {
   const server = new McpServer({
@@ -526,6 +527,47 @@ function createMcpServer() {
         return {
           isError: true,
           content: [{ type: 'text', text: `Switch device failed: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 19: List Installed User Apps
+  server.tool(
+    'tv_list_installed_apps',
+    'List all user-installed applications on the Android TV with resolved human names and package IDs',
+    {},
+    async () => {
+      if (!adbService.connected) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Device not connected. Use tv_connect first.' }]
+        };
+      }
+      try {
+        const thirdPartyRaw = await adbService.shell('pm list packages -3');
+        const pkgs = thirdPartyRaw
+          .split('\n')
+          .map((l) => l.replace('package:', '').trim())
+          .filter(Boolean);
+        const apps = pkgs
+          .map((pkg) => ({
+            package: pkg,
+            name: appLabelService.resolve(pkg)
+          }))
+          .sort((a, b) => a.name.localeCompare(b.name));
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify({ count: apps.length, apps }, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to list installed apps: ${err.message}` }]
         };
       }
     }

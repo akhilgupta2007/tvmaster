@@ -3,6 +3,7 @@
  */
 
 const adbService = require('../services/adbService');
+const appLabelService = require('../services/appLabelService');
 const { REGEX_PACKAGE } = require('../constants');
 
 // Curated list of known safe-to-disable manufacturer/vendor telemetry and promo services
@@ -84,6 +85,15 @@ class ProcessController {
           .filter(Boolean)
       );
 
+      // Map rich user installed apps with human-friendly names
+      const installedApps = Array.from(thirdPartySet)
+        .map((pkg) => ({
+          package: pkg,
+          name: appLabelService.resolve(pkg),
+          isDisabled: disabledSet.has(pkg)
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+
       // Map known bloatware items with live status
       const bloatwareList = KNOWN_BLOATWARE.map((item) => ({
         ...item,
@@ -92,6 +102,7 @@ class ProcessController {
 
       return res.json({
         userPackages: Array.from(thirdPartySet),
+        installedApps,
         disabledPackages: Array.from(disabledSet),
         bloatware: bloatwareList
       });

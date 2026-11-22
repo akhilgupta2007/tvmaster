@@ -170,4 +170,11 @@ mActiveSfDisplayMode=DisplayMode{id=0, width=3840, height=2160, xDpi=80.0, yDpi=
     assert.ok('cpuAbi' in adbService.deviceInfo);
     assert.ok('socModel' in adbService.deviceInfo);
   });
+
+  test('GET /api/packages requires connected device', async () => {
+    const res = await fetch(`${baseUrl}/api/packages`);
+    assert.strictEqual(res.status, 400);
+    const data = await res.json();
+    assert.ok(data.error);
+  });
 });
