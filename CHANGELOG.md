@@ -7,6 +7,37 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.0] - 2026-11-23
+
+### Added
+* **Remote File Manager & Storage Hub (Zero TV Overhead)**:
+  * Full on-demand remote file manager for Android TV, Fire TV, Shield, and streaming boxes without installing any resident app or daemon on the device.
+  * **Interactive File Explorer Modal**:
+    * Clean modal accessible via toolbar button (`📁 Files`).
+    * Breadcrumb navigation with clickable folder segments and instant "Up" directory navigation.
+    * Real-time storage capacity gauge showing total, used, and free space on `/sdcard`.
+    * Instant search filter to rapidly locate files by name or extension.
+    * File category classification with visual indicators (🎬 Video, 🎵 Audio, 🖼️ Images, 📦 APKs, 🗜️ Archives, 📄 Documents, 📁 Folders).
+  * **File & Folder Operations**:
+    * **New Folder**: Modal prompt to create folders recursively (`mkdir -p`).
+    * **Delete File/Folder**: Confirmation modal and on-demand recursive removal (`rm -rf`).
+    * **Drag-and-Drop Upload**: Drop files anywhere into the upload dropzone to push files directly to the current TV folder with real-time progress bar. Supports transfers up to 1GB.
+    * **Download**: Stream remote files from TV storage directly to user's browser with automatic temporary cache cleanup.
+  * **Strict Path Traversal & Root Security**:
+    * `FileService.sanitizePath()` strictly confines operations to Android TV user storage (`/sdcard`, `/storage/emulated/0`, `/storage`, `/mnt`).
+    * Completely blocks system directory traversal (`/system`, `/vendor`, `/data/data`, `/proc`, `/sys`, `/dev`, `/etc`) and parent path escapes (`..`).
+    * Rejects null bytes, command substitution (`$()`, ``` `` ```), pipes, and shell delimiters.
+    * **Protected Root Protection**: Permanent block preventing deletion of root mount points (`/`, `/sdcard`, `/storage`, `/storage/emulated/0`).
+  * **Model Context Protocol (MCP) Tools**:
+    * `tv_list_files`: Browse remote storage and inspect disk capacity.
+    * `tv_create_directory`: Create remote folders.
+    * `tv_delete_file`: Delete files and folders safely.
+  * **Automated Security & Unit Test Suite**:
+    * Created `tests/files.test.js` verifying path traversal prevention, name sanitization, root deletion blocking, ls parsing, and HTTP API validation.
+    * All 62 test suites passing (62/62 passing).
+
+---
+
 ## [1.7.4] - 2026-11-22
 
 ### Fixed

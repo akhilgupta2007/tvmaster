@@ -14,6 +14,7 @@ const telemetryService = require('../services/telemetryService');
 const discoveryService = require('../services/discoveryService');
 const deviceService = require('../services/deviceService');
 const appLabelService = require('../services/appLabelService');
+const fileService = require('../services/fileService');
 
 function createMcpServer() {
   const server = new McpServer({
@@ -580,6 +581,106 @@ function createMcpServer() {
         return {
           isError: true,
           content: [{ type: 'text', text: `Failed to list installed apps: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 17: List Remote Files & Folders
+  server.tool(
+    'tv_list_files',
+    'List files, folders, and storage metrics on Android TV storage (/sdcard or /storage) with zero recurring overhead',
+    {
+      path: z.string().optional().describe('Remote path to list (e.g. /sdcard, /sdcard/Download). Defaults to /sdcard')
+    },
+    async ({ path: targetPath = '/sdcard' }) => {
+      if (!adbService.connected) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Device not connected. Use tv_connect first.' }]
+        };
+      }
+      try {
+        const result = await fileService.listFiles(targetPath);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to list files: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 18: Create Remote Directory
+  server.tool(
+    'tv_create_directory',
+    'Create a new folder on Android TV storage (/sdcard or /storage)',
+    {
+      parentPath: z.string().optional().describe('Parent directory path (defaults to /sdcard)'),
+      name: z.string().describe('Name of the new folder to create')
+    },
+    async ({ parentPath = '/sdcard', name }) => {
+      if (!adbService.connected) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Device not connected. Use tv_connect first.' }]
+        };
+      }
+      try {
+        const result = await fileService.createDirectory(parentPath, name);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to create directory: ${err.message}` }]
+        };
+      }
+    }
+  );
+
+  // Tool 19: Delete Remote File or Directory
+  server.tool(
+    'tv_delete_file',
+    'Delete a file or folder on Android TV storage (/sdcard or /storage). Protected root paths cannot be deleted.',
+    {
+      path: z.string().describe('Full remote path of file or folder to delete')
+    },
+    async ({ path: targetPath }) => {
+      if (!adbService.connected) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: 'Device not connected. Use tv_connect first.' }]
+        };
+      }
+      try {
+        const result = await fileService.deleteItem(targetPath);
+        return {
+          content: [
+            {
+              type: 'text',
+              text: JSON.stringify(result, null, 2)
+            }
+          ]
+        };
+      } catch (err) {
+        return {
+          isError: true,
+          content: [{ type: 'text', text: `Failed to delete item: ${err.message}` }]
         };
       }
     }

@@ -4,11 +4,11 @@
 
 <img src="./public/assets/logo.svg" alt="TvMaster Logo" width="96" height="96" />
 
-![Version](https://img.shields.io/badge/version-1.7.4-blue.svg)
+![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Devices](https://img.shields.io/badge/Devices-Android%20TV%20%7C%20Fire%20TV%20%7C%20Shield%20%7C%20Chromecast-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)
-![Tests](https://img.shields.io/badge/tests-50%2F50%20passing-brightgreen.svg)
+![Tests](https://img.shields.io/badge/tests-62%2F62%20passing-brightgreen.svg)
 ![License](https://img.shields.io/badge/license-MIT-purple.svg)
 
 **Zero-Overhead Android TV, Fire TV & Streaming Device Resource Monitor, Task Manager & Debloat Hub for Docker & Home Servers**
@@ -42,6 +42,13 @@ Unlike on-device "cleaner" or "booster" apps that consume valuable TV memory and
     * 🧹 **Clear Data**: Wipe app cache and reset storage without uninstallation.
     * ▶️ **Launch**: Open any app directly on the TV.
   * Instant search filter by app name or package ID.
+* **📁 Remote File Explorer & Storage Manager (Zero TV Overhead):**
+  * Full-featured interactive file manager for remote Android TV storage (`/sdcard` & `/storage`).
+  * Visual breadcrumb navigation, storage meter, and live free/used space inspection.
+  * Drag-and-drop file uploader with live transfer progress (push APKs, media, subtitles, ROMs directly to TV).
+  * 1-click file download from TV storage to browser.
+  * Directory creation (`mkdir -p`) and deletion (`rm -rf`) with strict path traversal prevention and protected root storage boundaries.
+  * Categorized file icons (🎬 Video, 🎵 Audio, 🖼️ Images, 📦 APKs, 🗜️ Archives, 📄 Documents).
 * **⚡ Real-Time Resource Gauges:**
   * **RAM Breakdown:** Visual segmented bar showing Active Apps, Cached Memory, and Free Memory.
   * **CPU Architecture & Per-Core Utilization (Zero TV Overhead):**

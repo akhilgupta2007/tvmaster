@@ -1676,3 +1676,387 @@ function escapeHtml(str) {
     "'": '&#39;'
   })[m]);
 }
+
+// ==========================================
+// --- Remote File Manager (On-Demand ADB) ---
+// ==========================================
+
+let currentRemotePath = '/sdcard';
+let currentRemoteFiles = [];
+let remoteParentPath = null;
+let fmDropzoneInitialized = false;
+
+async function openFileManagerModal() {
+  if (!await ensureConnected()) {
+    return alert('Please connect to your Android TV or Streaming device first');
+  }
+
+  const modal = document.getElementById('modal-file-manager');
+  if (modal) modal.classList.remove('hidden');
+
+  const targetLabel = document.getElementById('fm-target-label');
+  if (targetLabel) {
+    const ip = (devIp && devIp.textContent !== '-') ? devIp.textContent : (inputIp ? inputIp.value : 'Connected TV');
+    targetLabel.textContent = `${devModel ? devModel.textContent : 'Device'} (${ip})`;
+  }
+
+  setupFmDropzone();
+  await fetchRemoteFiles(currentRemotePath || '/sdcard');
+}
+
+function closeFileManagerModal() {
+  const modal = document.getElementById('modal-file-manager');
+  if (modal) modal.classList.add('hidden');
+}
+
+function setupFmDropzone() {
+  if (fmDropzoneInitialized) return;
+  const dropzone = document.getElementById('fm-dropzone');
+  if (!dropzone) return;
+
+  ['dragenter', 'dragover'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.add('bg-amber-500/5', 'border-2', 'border-dashed', 'border-amber-500/50');
+    }, false);
+  });
+
+  ['dragleave', 'drop'].forEach((eventName) => {
+    dropzone.addEventListener(eventName, (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dropzone.classList.remove('bg-amber-500/5', 'border-2', 'border-dashed', 'border-amber-500/50');
+    }, false);
+  });
+
+  dropzone.addEventListener('drop', (e) => {
+    const dt = e.dataTransfer;
+    const files = dt ? dt.files : null;
+    if (files && files.length > 0) {
+      handleRemoteFileUpload(files);
+    }
+  }, false);
+
+  fmDropzoneInitialized = true;
+}
+
+async function fetchRemoteFiles(dirPath) {
+  const tbody = document.getElementById('fm-table-body');
+  if (tbody) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="py-12 text-center text-slate-500">
+          <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-amber-500 border-t-transparent mb-2"></div>
+          <p>Querying files at <span class="font-bold text-slate-300">${escapeHtml(dirPath)}</span>...</p>
+        </td>
+      </tr>
+    `;
+  }
+
+  try {
+    const res = await fetch(`/api/files?path=${encodeURIComponent(dirPath)}`);
+    const data = await res.json();
+    if (data.success) {
+      currentRemotePath = data.currentPath;
+      currentRemoteFiles = data.items || [];
+      remoteParentPath = data.parentPath;
+
+      // Update storage free badge
+      const storageBadge = document.getElementById('fm-storage-badge');
+      if (storageBadge && data.storage) {
+        storageBadge.textContent = `${data.storage.free} Free (${data.storage.usedPercent}% used)`;
+      }
+
+      // Update Up button state
+      const btnUp = document.getElementById('fm-btn-up');
+      if (btnUp) {
+        btnUp.disabled = !data.parentPath;
+      }
+
+      renderBreadcrumbs(data.currentPath);
+      renderFileManagerTable(currentRemoteFiles);
+    } else {
+      if (tbody) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="4" class="py-10 text-center text-red-400">
+              <p class="font-bold">Failed to load directory</p>
+              <p class="text-xs text-slate-500 mt-1">${escapeHtml(data.error || 'Unknown error')}</p>
+            </td>
+          </tr>
+        `;
+      }
+    }
+  } catch (err) {
+    if (tbody) {
+      tbody.innerHTML = `
+        <tr>
+          <td colspan="4" class="py-10 text-center text-red-400">
+            <p class="font-bold">Network Connection Error</p>
+            <p class="text-xs text-slate-500 mt-1">${escapeHtml(err.message)}</p>
+          </td>
+        </tr>
+      `;
+    }
+  }
+}
+
+function renderBreadcrumbs(fullPath) {
+  const container = document.getElementById('fm-breadcrumbs');
+  if (!container) return;
+
+  const parts = fullPath.split('/').filter(Boolean);
+  let html = `
+    <button onclick="navigateToRemoteFolder('/sdcard')" class="px-2 py-1 rounded-lg ${fullPath === '/sdcard' ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} transition flex items-center gap-1">
+      <span>🏠</span>
+      <span>sdcard</span>
+    </button>
+  `;
+
+  let accumulated = '';
+  for (let i = 0; i < parts.length; i++) {
+    accumulated += '/' + parts[i];
+    // Skip initial root prefix buttons that match sdcard
+    if (accumulated === '/sdcard' || accumulated === '/storage' || accumulated === '/storage/emulated' || accumulated === '/storage/emulated/0') {
+      continue;
+    }
+    const isLast = (i === parts.length - 1);
+    const target = accumulated;
+    html += `
+      <span class="text-slate-600 font-mono">/</span>
+      <button onclick="navigateToRemoteFolder('${escapeHtml(target)}')" class="px-2 py-1 rounded-lg ${isLast ? 'bg-amber-500/20 text-amber-300 font-bold border border-amber-500/30' : 'bg-slate-800 hover:bg-slate-700 text-slate-200'} transition font-mono truncate max-w-[140px]">
+        ${escapeHtml(parts[i])}
+      </button>
+    `;
+  }
+
+  container.innerHTML = html;
+}
+
+function renderFileManagerTable(items) {
+  const tbody = document.getElementById('fm-table-body');
+  const countLabel = document.getElementById('fm-footer-count');
+  if (!tbody) return;
+
+  if (countLabel) {
+    const foldersCount = items.filter((i) => i.isDirectory).length;
+    const filesCount = items.length - foldersCount;
+    countLabel.textContent = `${items.length} items (${foldersCount} folders, ${filesCount} files)`;
+  }
+
+  if (items.length === 0) {
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="4" class="py-12 text-center text-slate-500">
+          <p class="text-2xl mb-1">📂</p>
+          <p class="font-medium text-slate-400">This directory is empty</p>
+          <p class="text-slate-600 text-[11px] mt-0.5">Drag and drop files here or click Upload File</p>
+        </td>
+      </tr>
+    `;
+    return;
+  }
+
+  let html = '';
+  for (const item of items) {
+    const escapedPath = escapeHtml(item.path);
+    const escapedName = escapeHtml(item.name);
+    
+    if (item.isDirectory) {
+      // Folder Row
+      html += `
+        <tr class="hover:bg-slate-800/50 transition cursor-pointer group" onclick="navigateToRemoteFolder('${escapedPath}')">
+          <td class="py-2.5 pl-3 flex items-center gap-2.5 truncate max-w-xs sm:max-w-md">
+            <span class="text-base flex-shrink-0 group-hover:scale-110 transition">📁</span>
+            <span class="font-bold text-white group-hover:text-amber-300 truncate">${escapedName}</span>
+          </td>
+          <td class="py-2.5 pr-4 text-right text-slate-500">-</td>
+          <td class="py-2.5 pr-4 text-slate-500 hidden sm:table-cell">${escapeHtml(item.modified || '-')}</td>
+          <td class="py-2.5 pr-3 text-right" onclick="event.stopPropagation()">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="confirmDeleteRemoteItem('${escapedPath}', true, '${escapedName}')" class="px-2 py-1 bg-slate-800 hover:bg-red-600 text-slate-400 hover:text-white rounded-lg transition" title="Delete Folder">
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    } else {
+      // File Row
+      html += `
+        <tr class="hover:bg-slate-800/40 transition group">
+          <td class="py-2.5 pl-3 flex items-center gap-2.5 truncate max-w-xs sm:max-w-md">
+            <span class="text-base flex-shrink-0">${item.icon || '📄'}</span>
+            <span class="font-medium text-slate-200 group-hover:text-white truncate">${escapedName}</span>
+          </td>
+          <td class="py-2.5 pr-4 text-right font-medium text-slate-300">${item.sizeFormatted || '-'}</td>
+          <td class="py-2.5 pr-4 text-slate-500 hidden sm:table-cell">${escapeHtml(item.modified || '-')}</td>
+          <td class="py-2.5 pr-3 text-right">
+            <div class="flex items-center justify-end gap-1.5">
+              <button onclick="downloadRemoteFile('${escapedPath}')" class="px-2 py-1 bg-slate-800 hover:bg-blue-600 text-slate-300 hover:text-white rounded-lg transition flex items-center gap-1" title="Download to computer">
+                ⬇️
+              </button>
+              <button onclick="confirmDeleteRemoteItem('${escapedPath}', false, '${escapedName}')" class="px-2 py-1 bg-slate-800 hover:bg-red-600 text-slate-400 hover:text-white rounded-lg transition" title="Delete File">
+                🗑️
+              </button>
+            </div>
+          </td>
+        </tr>
+      `;
+    }
+  }
+
+  tbody.innerHTML = html;
+}
+
+function navigateToRemoteFolder(dirPath) {
+  const searchInput = document.getElementById('fm-search-input');
+  if (searchInput) searchInput.value = '';
+  fetchRemoteFiles(dirPath);
+}
+
+function navigateRemoteUp() {
+  if (remoteParentPath) {
+    navigateToRemoteFolder(remoteParentPath);
+  }
+}
+
+function refreshCurrentFolder() {
+  fetchRemoteFiles(currentRemotePath || '/sdcard');
+}
+
+function filterRemoteFiles(searchTerm) {
+  const term = (searchTerm || '').toLowerCase().trim();
+  if (!term) {
+    renderFileManagerTable(currentRemoteFiles);
+    return;
+  }
+  const filtered = currentRemoteFiles.filter((item) => item.name.toLowerCase().includes(term));
+  renderFileManagerTable(filtered);
+}
+
+// --- Folder Creation ---
+function promptCreateFolder() {
+  const modal = document.getElementById('modal-fm-mkdir');
+  const input = document.getElementById('fm-new-folder-name');
+  if (input) input.value = '';
+  if (modal) modal.classList.remove('hidden');
+  if (input) setTimeout(() => input.focus(), 100);
+}
+
+function closeCreateFolderModal() {
+  const modal = document.getElementById('modal-fm-mkdir');
+  if (modal) modal.classList.add('hidden');
+}
+
+async function submitCreateFolder() {
+  const input = document.getElementById('fm-new-folder-name');
+  const name = input ? input.value.trim() : '';
+  if (!name) return alert('Please enter a folder name');
+
+  try {
+    const res = await fetch('/api/files/mkdir', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: currentRemotePath, name })
+    });
+    const data = await res.json();
+    if (data.success) {
+      closeCreateFolderModal();
+      refreshCurrentFolder();
+    } else {
+      alert(`Failed to create folder: ${data.error || 'Permission denied'}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// --- Item Deletion ---
+async function confirmDeleteRemoteItem(itemPath, isDirectory, name) {
+  const typeStr = isDirectory ? 'folder and all its contents' : 'file';
+  const confirmed = confirm(`Are you sure you want to permanently delete this ${typeStr}?\n\n${name}`);
+  if (!confirmed) return;
+
+  try {
+    const res = await fetch('/api/files', {
+      method: 'DELETE',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ path: itemPath })
+    });
+    const data = await res.json();
+    if (data.success) {
+      refreshCurrentFolder();
+    } else {
+      alert(`Delete failed: ${data.error || 'Cannot delete item'}`);
+    }
+  } catch (err) {
+    alert(`Error: ${err.message}`);
+  }
+}
+
+// --- File Upload ---
+function triggerRemoteFileUpload() {
+  const input = document.getElementById('fm-file-input');
+  if (input) input.click();
+}
+
+async function handleRemoteFileUpload(files) {
+  if (!files || files.length === 0) return;
+  const file = files[0];
+
+  const progressBox = document.getElementById('fm-upload-progress');
+  const statusText = document.getElementById('fm-upload-status');
+  const percentText = document.getElementById('fm-upload-percent');
+  const progressBar = document.getElementById('fm-upload-bar');
+
+  if (progressBox) progressBox.classList.remove('hidden');
+  if (statusText) statusText.textContent = `Uploading ${file.name} to TV...`;
+  if (percentText) percentText.textContent = '0%';
+  if (progressBar) progressBar.style.width = '0%';
+
+  const formData = new FormData();
+  formData.append('file', file);
+  formData.append('destinationPath', currentRemotePath);
+
+  const xhr = new XMLHttpRequest();
+  xhr.open('POST', '/api/files/upload', true);
+
+  xhr.upload.onprogress = (e) => {
+    if (e.lengthComputable) {
+      const pct = Math.round((e.loaded / e.total) * 100);
+      if (progressBar) progressBar.style.width = `${pct}%`;
+      if (percentText) percentText.textContent = `${pct}%`;
+    }
+  };
+
+  xhr.onload = () => {
+    setTimeout(() => {
+      if (progressBox) progressBox.classList.add('hidden');
+    }, 600);
+
+    if (xhr.status === 200) {
+      refreshCurrentFolder();
+    } else {
+      try {
+        const err = JSON.parse(xhr.responseText);
+        alert(`Upload Failed: ${err.error || 'Could not push file to TV'}`);
+      } catch (e) {
+        alert(`Upload Failed with status ${xhr.status}`);
+      }
+    }
+  };
+
+  xhr.onerror = () => {
+    if (progressBox) progressBox.classList.add('hidden');
+    alert('Network error while uploading file to Android TV');
+  };
+
+  xhr.send(formData);
+}
+
+// --- File Download ---
+function downloadRemoteFile(remotePath) {
+  window.location.href = `/api/files/download?path=${encodeURIComponent(remotePath)}`;
+}

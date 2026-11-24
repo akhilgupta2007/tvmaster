@@ -31,7 +31,7 @@
               <span>TvMaster</span>
             </h1>
             <!-- Required Version Badge -->
-            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.7.4</span>
+            <span id="app-version-badge" class="px-2 py-0.5 text-xs font-semibold bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-full">v1.8.0</span>
             <span id="conn-pill" class="px-2.5 py-0.5 text-xs font-semibold bg-slate-800 text-slate-400 border border-slate-700 rounded-full flex items-center gap-1.5">
               <span id="conn-dot" class="w-2 h-2 rounded-full bg-slate-500"></span>
               <span id="conn-text">Disconnected</span>
@@ -230,6 +230,10 @@
           <span>Installed Apps</span>
           <span id="installed-apps-badge" class="px-1.5 py-0.5 bg-emerald-500/30 text-emerald-300 text-[10px] rounded-full font-mono">--</span>
         </button>
+        <button onclick="openFileManagerModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-amber-600/20 hover:bg-amber-600 text-amber-300 hover:text-white rounded-xl border border-amber-500/30 transition shadow-sm flex items-center gap-1.5" title="Remote File Manager (Browse, Upload, Delete, Download)">
+          <span>📁</span>
+          <span>Files</span>
+        </button>
         <button onclick="openInstallModal()" class="px-3.5 py-1.5 text-xs font-semibold bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl shadow-md glow-emerald transition flex items-center gap-1.5">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
           Sideload APK
@@ -342,7 +346,7 @@
 
   <!-- Footer -->
   <footer class="max-w-7xl mx-auto w-full mt-6 text-center text-xs text-slate-500 flex flex-wrap justify-between items-center gap-2 border-t border-slate-900 pt-4">
-    <div>TvMaster v1.7.4 • Android TV & Streaming Device Task Manager</div>
+    <div>TvMaster v1.8.0 • Android TV & Streaming Device Task Manager</div>
     <div>Self-hosted Docker Hub Edition</div>
   </footer>
 
@@ -684,6 +688,141 @@
         <button onclick="closeDisplaySpecsModal()" class="px-4 py-1.5 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-xs font-bold transition shadow glow-blue">
           Close
         </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Remote File Manager Modal -->
+  <div id="modal-file-manager" class="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center hidden p-3 sm:p-5">
+    <div class="bg-slate-900 border border-slate-800 rounded-3xl w-full max-w-5xl shadow-2xl flex flex-col max-h-[92vh] overflow-hidden">
+      
+      <!-- Modal Header -->
+      <div class="p-5 border-b border-slate-800 flex items-center justify-between gap-4 flex-wrap bg-slate-950/40">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-xl text-amber-400 shadow-inner">
+            📁
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h3 class="font-bold text-white text-base">Remote File Manager</h3>
+              <span id="fm-storage-badge" class="px-2 py-0.5 rounded-full text-[10px] font-mono bg-slate-800 text-amber-400 border border-slate-700">Loading storage...</span>
+            </div>
+            <p class="text-xs text-slate-400 flex items-center gap-1.5 mt-0.5">
+              <span>Zero Overhead ADB Direct Storage</span>
+              <span>•</span>
+              <span id="fm-target-label" class="text-slate-300 font-mono text-[11px]">-</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button onclick="closeFileManagerModal()" class="w-8 h-8 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white flex items-center justify-center text-sm transition">
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Path Bar & Breadcrumbs -->
+      <div class="px-5 py-3 border-b border-slate-800/80 bg-slate-950/20 flex items-center justify-between gap-3 flex-wrap text-xs">
+        <div class="flex items-center gap-1.5 flex-1 min-w-[260px] overflow-x-auto py-1 scrollbar-none" id="fm-breadcrumbs">
+          <button onclick="navigateToRemoteFolder('/sdcard')" class="px-2 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 font-medium transition flex items-center gap-1">
+            <span>🏠</span>
+            <span>/sdcard</span>
+          </button>
+        </div>
+
+        <div class="flex items-center gap-2">
+          <button id="fm-btn-up" onclick="navigateRemoteUp()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition flex items-center gap-1 disabled:opacity-40" disabled>
+            <span>⬆️</span>
+            <span>Up</span>
+          </button>
+          <button onclick="refreshCurrentFolder()" class="px-2.5 py-1 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-lg text-xs font-medium transition flex items-center gap-1" title="Refresh folder">
+            <span>↻</span>
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      <!-- Action Toolbar & Search -->
+      <div class="p-4 border-b border-slate-800 bg-slate-900 flex items-center justify-between gap-3 flex-wrap text-xs">
+        <div class="flex items-center gap-2 flex-wrap">
+          <button onclick="promptCreateFolder()" class="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 text-white font-semibold rounded-xl transition shadow glow-blue flex items-center gap-1.5">
+            <span>📁</span>
+            <span>New Folder</span>
+          </button>
+
+          <button onclick="triggerRemoteFileUpload()" class="px-3 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white font-semibold rounded-xl transition shadow glow-emerald flex items-center gap-1.5">
+            <span>⬆️</span>
+            <span>Upload File</span>
+          </button>
+          <input id="fm-file-input" type="file" onchange="handleRemoteFileUpload(this.files)" class="hidden">
+        </div>
+
+        <div class="flex items-center gap-2 flex-1 sm:max-w-xs">
+          <input id="fm-search-input" type="text" oninput="filterRemoteFiles(this.value)" placeholder="Filter files in current folder..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-1.5 text-xs text-white placeholder-slate-500 focus:outline-none focus:border-amber-500 transition">
+        </div>
+      </div>
+
+      <!-- Upload Progress Box -->
+      <div id="fm-upload-progress" class="hidden px-5 py-2.5 bg-amber-500/10 border-b border-amber-500/20 text-xs">
+        <div class="flex justify-between text-slate-300 font-medium mb-1">
+          <span id="fm-upload-status">Uploading file to TV...</span>
+          <span id="fm-upload-percent">0%</span>
+        </div>
+        <div class="w-full bg-slate-800 h-1.5 rounded-full overflow-hidden">
+          <div id="fm-upload-bar" class="bg-amber-400 h-full transition-all duration-200" style="width: 0%"></div>
+        </div>
+      </div>
+
+      <!-- Files Table Container -->
+      <div id="fm-dropzone" class="flex-1 overflow-y-auto p-4 relative min-h-[320px]">
+        <table class="w-full text-left text-xs text-slate-300 border-collapse">
+          <thead>
+            <tr class="border-b border-slate-800 text-slate-400 text-[11px] font-semibold uppercase tracking-wider">
+              <th class="pb-2.5 pl-3">Name</th>
+              <th class="pb-2.5 pr-4 text-right">Size</th>
+              <th class="pb-2.5 pr-4 text-slate-500 hidden sm:table-cell">Modified</th>
+              <th class="pb-2.5 pr-3 text-right">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="fm-table-body" class="divide-y divide-slate-800/60 font-mono">
+            <tr>
+              <td colspan="4" class="py-12 text-center text-slate-500">
+                <div class="inline-block animate-spin rounded-full h-6 w-6 border-2 border-amber-500 border-t-transparent mb-2"></div>
+                <p>Loading files from remote device...</p>
+              </td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+
+      <!-- Modal Footer -->
+      <div class="p-3 border-t border-slate-800 bg-slate-950/60 flex items-center justify-between text-[11px] text-slate-400 px-5">
+        <div id="fm-footer-count">0 items</div>
+        <div class="flex items-center gap-2">
+          <span>Tip: Drag and drop files directly into this window to upload</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Create Folder Modal -->
+  <div id="modal-fm-mkdir" class="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center hidden p-4">
+    <div class="bg-slate-900 border border-slate-800 rounded-2xl p-5 max-w-sm w-full shadow-2xl space-y-4">
+      <div class="flex items-center justify-between border-b border-slate-800 pb-2.5">
+        <h4 class="font-bold text-white text-sm flex items-center gap-1.5">
+          <span>📁</span>
+          <span>Create New Folder</span>
+        </h4>
+        <button onclick="closeCreateFolderModal()" class="text-slate-400 hover:text-white">&times;</button>
+      </div>
+      <div>
+        <label class="block text-slate-400 text-xs mb-1">Folder Name</label>
+        <input id="fm-new-folder-name" type="text" placeholder="Movies, Subtitles, ROMs..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-500">
+      </div>
+      <div class="flex justify-end gap-2 pt-2 border-t border-slate-800 text-xs">
+        <button onclick="submitCreateFolder()" class="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white rounded-xl font-bold transition">Create</button>
+        <button onclick="closeCreateFolderModal()" class="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl font-medium">Cancel</button>
       </div>
     </div>
   </div>

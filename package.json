@@ -1,6 +1,6 @@
 {
   "name": "tvmaster",
-  "version": "1.7.4",
+  "version": "1.8.0",
   "description": "Zero-overhead Android TV, Fire TV and Streaming Device Resource Monitor and Task Manager for Docker and Home Servers",
   "main": "src/server.js",
   "scripts": {

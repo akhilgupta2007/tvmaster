@@ -37,6 +37,9 @@ describe('TvMaster MCP Server Tool Registry Tests', () => {
     assert.ok(tools['tv_list_devices'], 'tv_list_devices registered');
     assert.ok(tools['tv_switch_device'], 'tv_switch_device registered');
     assert.ok(tools['tv_list_installed_apps'], 'tv_list_installed_apps registered');
+    assert.ok(tools['tv_list_files'], 'tv_list_files registered');
+    assert.ok(tools['tv_create_directory'], 'tv_create_directory registered');
+    assert.ok(tools['tv_delete_file'], 'tv_delete_file registered');
   });
 
   test('tv_get_status handles disconnected state gracefully', async () => {
@@ -72,6 +75,13 @@ describe('TvMaster MCP Server Tool Registry Tests', () => {
   test('tv_list_installed_apps reports error when not connected', async () => {
     const tools = mcp._registeredTools;
     const res = await tools['tv_list_installed_apps'].handler({});
+    assert.strictEqual(res.isError, true);
+    assert.match(res.content[0].text, /Device not connected/i);
+  });
+
+  test('tv_list_files reports error when not connected', async () => {
+    const tools = mcp._registeredTools;
+    const res = await tools['tv_list_files'].handler({});
     assert.strictEqual(res.isError, true);
     assert.match(res.content[0].text, /Device not connected/i);
   });

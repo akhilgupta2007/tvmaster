@@ -43,14 +43,14 @@ const storage = multer.diskStorage({
     cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname) || '.apk';
+    const ext = path.extname(file.originalname) || '';
     const safeName = `tvmaster-${Date.now()}-${Math.round(Math.random() * 1e9)}${ext}`;
     cb(null, safeName);
   }
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 500 * 1024 * 1024 } // Support up to 500MB APKs
+  limits: { fileSize: 1024 * 1024 * 1024 } // Support up to 1GB files and APKs
 });
 
 const {
@@ -68,6 +68,7 @@ const deviceService = require('./services/deviceService');
 
 const processController = require('./controllers/processController');
 const tuningController = require('./controllers/tuningController');
+const fileController = require('./controllers/fileController');
 
 const app = express();
 const server = http.createServer(app);
@@ -363,6 +364,13 @@ app.post('/api/tuning/animation-scale', (req, res) => tuningController.setAnimat
 app.post('/api/remote/key', (req, res) => tuningController.sendRemoteKey(req, res));
 app.post('/api/remote/text', (req, res) => tuningController.sendRemoteText(req, res));
 app.post('/api/remote/reboot', (req, res) => tuningController.reboot(req, res));
+
+// Remote File Manager
+app.get('/api/files', (req, res) => fileController.listFiles(req, res));
+app.post('/api/files/mkdir', (req, res) => fileController.createDirectory(req, res));
+app.delete('/api/files', (req, res) => fileController.deleteItem(req, res));
+app.post('/api/files/upload', upload.single('file'), (req, res) => fileController.uploadFile(req, res));
+app.get('/api/files/download', (req, res) => fileController.downloadFile(req, res));
 
 // --- WebSocket Handling for Zero-Load Adaptive Telemetry ---
 wss.on('connection', (ws) => {

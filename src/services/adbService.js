@@ -506,6 +506,46 @@ class AdbService {
     this.connected = false;
     return { success: true, message: 'Reboot signal sent to TV' };
   }
+
+  /**
+   * Push a local file to remote Android TV filesystem
+   */
+  async pushFile(localPath, remotePath, timeoutMs = 180000) {
+    if (!this.connected || !this.deviceIp) {
+      throw new Error('Not connected to any Android TV device');
+    }
+    const target = `${this.deviceIp}:${this.devicePort}`;
+    const { stdout, stderr } = await execFileAsync(
+      'adb',
+      ['-s', target, 'push', localPath, remotePath],
+      { timeout: timeoutMs }
+    );
+    const output = (stdout + ' ' + stderr).trim();
+    if (output.includes('error:') || output.includes('cannot create')) {
+      throw new Error(output || 'Failed to push file to TV');
+    }
+    return { success: true, output };
+  }
+
+  /**
+   * Pull a remote file from Android TV filesystem to local path
+   */
+  async pullFile(remotePath, localPath, timeoutMs = 180000) {
+    if (!this.connected || !this.deviceIp) {
+      throw new Error('Not connected to any Android TV device');
+    }
+    const target = `${this.deviceIp}:${this.devicePort}`;
+    const { stdout, stderr } = await execFileAsync(
+      'adb',
+      ['-s', target, 'pull', remotePath, localPath],
+      { timeout: timeoutMs }
+    );
+    const output = (stdout + ' ' + stderr).trim();
+    if (output.includes('error:') || output.includes('does not exist')) {
+      throw new Error(output || 'Failed to pull file from TV');
+    }
+    return { success: true, output };
+  }
 }
 
 module.exports = new AdbService();
