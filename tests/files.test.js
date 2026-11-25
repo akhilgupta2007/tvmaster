@@ -145,6 +145,26 @@ describe('TvMaster Remote File Manager & Security Suite', () => {
     assert.ok(parsedSpace);
     assert.strictEqual(parsedSpace.name, 'My Document 2026.pdf');
     assert.strictEqual(parsedSpace.path, '/sdcard/Documents/My Document 2026.pdf');
+
+    // Toybox trailing slash from ls -p
+    const slashLine = 'drwxrwxr-x  4 root sdcard_rw     4096 2026-11-20 18:22 Download/';
+    const parsedSlash = fileService.parseLsLine(slashLine, '/sdcard');
+    assert.ok(parsedSlash);
+    assert.strictEqual(parsedSlash.name, 'Download');
+    assert.strictEqual(parsedSlash.path, '/sdcard/Download');
+    assert.strictEqual(parsedSlash.isDirectory, true);
+
+    // Toybox ./ and ../ filtered out
+    assert.strictEqual(fileService.parseLsLine('drwxrwxr-x  4 root sdcard_rw 4096 2026-11-20 18:22 ./', '/sdcard'), null);
+    assert.strictEqual(fileService.parseLsLine('drwxrwxr-x  4 root sdcard_rw 4096 2026-11-20 18:22 ../', '/sdcard'), null);
+
+    // Symlinks to storage/emulated directories
+    const symlinkDirLine = 'lrwxrwxrwx  1 root root           21 2008-12-31 19:00 sdcard -> /storage/emulated/0';
+    const parsedSymlink = fileService.parseLsLine(symlinkDirLine, '/');
+    assert.ok(parsedSymlink);
+    assert.strictEqual(parsedSymlink.name, 'sdcard');
+    assert.strictEqual(parsedSymlink.isDirectory, true);
+    assert.strictEqual(parsedSymlink.category, 'folder');
   });
 
   // --- 5. HTTP API Endpoints Validation ---

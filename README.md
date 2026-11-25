@@ -4,7 +4,7 @@
 
 <img src="./public/assets/logo.svg" alt="TvMaster Logo" width="96" height="96" />
 
-![Version](https://img.shields.io/badge/version-1.8.0-blue.svg)
+![Version](https://img.shields.io/badge/version-1.8.1-blue.svg)
 ![Platform](https://img.shields.io/badge/platform-Docker%20%7C%20Linux%20%7C%20Windows-green.svg)
 ![Devices](https://img.shields.io/badge/Devices-Android%20TV%20%7C%20Fire%20TV%20%7C%20Shield%20%7C%20Chromecast-brightgreen.svg)
 ![Node.js](https://img.shields.io/badge/node-%3E%3D20.0.0-emerald.svg)

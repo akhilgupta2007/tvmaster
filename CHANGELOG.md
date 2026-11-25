@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [1.8.1] - 2026-11-25
+
+### Fixed
+* **Remote File Manager Directory Symlink Dereferencing & Folder Drill-Down**:
+  * **Root Symlink Dereferencing**: Fixed issue where opening `/sdcard` showed only a single 21-byte file item (`/sdcard`) instead of the directory's contents. Android Toybox `ls` treated the `/sdcard -> /storage/emulated/0` symlink as a file without a trailing slash; `FileService.listFiles` now guarantees a trailing directory slash (`"${dirTarget}"`) so Toybox dereferences storage symlinks and lists all internal directories.
+  * **Directory Suffix Sanitization**: Cleaned Toybox `ls -p` trailing slashes from item names (`Download/` -> `Download`) and normalized `item.path` for navigation.
+  * **Directory Detection for Symlinks**: Enhanced `parseLsLine` to recognize directories via `ls -p` trailing slash markers or symlink target destinations (`/storage/...`), ensuring folder rows render with folder icons (`📁`) and click-to-open drill-down handlers.
+  * **Toybox Pseudo-Directory Filtering**: Explicitly filtered out Toybox's `./` and `../` directory rows from the file explorer table.
+  * Added unit test assertions covering `ls -p` slash handling, relative folder filtering, and symlinked storage directory classification (62/62 tests passing).
+
+---
+
 ## [1.8.0] - 2026-11-23
 
 ### Added

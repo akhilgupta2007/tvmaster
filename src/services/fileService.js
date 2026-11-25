@@ -167,7 +167,6 @@ class FileService {
     if (parts.length < 6) return null;
 
     const permissions = parts[0];
-    const isDirectory = permissions.startsWith('d');
     const isSymlink = permissions.startsWith('l');
 
     // Filename is the trailing part, which may contain spaces
@@ -202,21 +201,32 @@ class FileService {
     }
 
     let name = parts.slice(nameIndex).join(' ');
+    let isSymlinkDestDir = false;
     // Handle symlink e.g. "sdcard -> /storage/emulated/0"
     if (isSymlink && name.includes(' -> ')) {
+      const targetDest = name.split(' -> ')[1]?.trim() || '';
       name = name.split(' -> ')[0].trim();
+      if (targetDest.endsWith('/') || targetDest.includes('storage') || targetDest.includes('emulated') || targetDest.includes('sdcard')) {
+        isSymlinkDestDir = true;
+      }
     }
 
-    // Ignore . and ..
-    if (name === '.' || name === '..') {
+    const hasTrailingSlash = name.endsWith('/');
+    const cleanName = name.replace(/\/+$/, '').trim();
+
+    // Ignore empty, ., .., and toybox ./ or ../
+    if (!cleanName || cleanName === '.' || cleanName === '..') {
       return null;
     }
 
-    const itemPath = path.posix.join(parentPath, name);
-    const classification = classifyFile(name, isDirectory);
+    // A directory is identified by 'd' in permissions, trailing slash from ls -p, or symlink to dir
+    const isDirectory = permissions.startsWith('d') || hasTrailingSlash || isSymlinkDestDir;
+
+    const itemPath = path.posix.join(parentPath, cleanName);
+    const classification = classifyFile(cleanName, isDirectory);
 
     return {
-      name,
+      name: cleanName,
       path: itemPath,
       isDirectory,
       isSymlink,
@@ -236,13 +246,16 @@ class FileService {
    */
   async listFiles(rawPath = '/sdcard') {
     const targetPath = this.sanitizePath(rawPath);
-    const parentPath = targetPath === '/sdcard' || targetPath === '/storage/emulated/0'
+    const parentPath = targetPath === '/sdcard' || targetPath === '/storage/emulated/0' || targetPath === '/storage'
       ? null
       : path.posix.dirname(targetPath);
 
+    // Ensure trailing slash so toybox ls dereferences root symlinks like /sdcard -> /storage/emulated/0
+    const dirTarget = targetPath.endsWith('/') ? targetPath : `${targetPath}/`;
+
     // Query file listing and storage stats in parallel
     const [lsOutput, dfOutput] = await Promise.all([
-      adbService.shell(`ls -la -p "${targetPath}" 2>/dev/null || ls -la "${targetPath}" 2>/dev/null`, 8000),
+      adbService.shell(`ls -la -p "${dirTarget}" 2>/dev/null || ls -la -p "${targetPath}" 2>/dev/null || ls -la "${targetPath}" 2>/dev/null`, 8000),
       adbService.shell(`df -k "${targetPath}" 2>/dev/null || true`, 4000)
     ]);
 
